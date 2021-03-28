@@ -47,6 +47,15 @@
         }
       },
       {
+        "package": "FirebladeECS",
+        "repositoryURL": "https://github.com/fireblade-engine/ecs.git",
+        "state": {
+          "branch": null,
+          "revision": "c997e078178113ff20e733942b81dea341c84f3d",
+          "version": "0.17.4"
+        }
+      },
+      {
         "package": "Path.swift",
         "repositoryURL": "https://github.com/mxcl/Path.swift.git",
         "state": {

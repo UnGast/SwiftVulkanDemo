@@ -15,7 +15,8 @@ let package = Package(
         .package(name: "GfxMath", url: "https://github.com/UnGast/swift-gfx-math.git", .branch("master")),
         .package(url: "https://github.com/cx-org/CombineX.git", .branch("master")),
         .package(name: "SwiftGUI", path: "../../swift-gui"),
-        .package(path: "../SwiftGUIBackendSkia")
+        .package(path: "../SwiftGUIBackendSkia"),
+        .package(name: "FirebladeECS", url: "https://github.com/fireblade-engine/ecs.git", from: "0.17.4")
     ],
     targets: [
         .target(
@@ -31,7 +32,8 @@ let package = Package(
                 "SwiftGUI",
                 .product(name: "SwiftGUIBackendSkia", package: "SwiftGUIBackendSkia"),
                 .product(name: "ApplicationBackendSDL2", package: "SwiftGUI"),
-                .product(name: "ApplicationBackendSDL2Vulkan", package: "SwiftGUI")],
+                .product(name: "ApplicationBackendSDL2Vulkan", package: "SwiftGUI"),
+                "FirebladeECS"],
             resources: [
                 .copy("Resources")
             ],

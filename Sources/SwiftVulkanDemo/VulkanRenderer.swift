@@ -7,6 +7,7 @@ import CTinyObjLoader
 import GfxMath
 import ApplicationBackendSDL2Vulkan
 import class SwiftGUI.CpuBufferDrawingSurface
+import FirebladeECS
 // SPRIV Compiler? https://github.com/stuartcarnie/SwiftSPIRV-Cross
 
 public class VulkanRenderer {
@@ -117,8 +118,6 @@ public class VulkanRenderer {
     try self.createTextureImageView()
 
     try self.createTextureSampler()
-
-    try self.loadVertexData()
 
     try self.createVertexBuffer()
 
@@ -765,8 +764,8 @@ public class VulkanRenderer {
     ))
   }
 
-  func loadVertexData() throws {
-    try objMesh.load()
+  func updateVertexData(nexus: Nexus) throws {
+    /*try objMesh.load()
     objMesh.modelTransformation = FMat4([
       1, 0, 0, 0,
       0, 1, 0, 10, 
@@ -792,10 +791,35 @@ public class VulkanRenderer {
       
       vertices.append(contentsOf: newVertices)
       indices.append(contentsOf: newIndices)
+    }*/
+    vertices = []
+    indices = []
+
+    let family = nexus.family(requiresAll: RenderMesh.self, LocalToWorld.self)
+    for (renderMesh, localToWorld) in family {
+      let newVertices: [Vertex] = renderMesh.mesh.vertices.map {
+        let transformedPosition = FVec3(Array(localToWorld.transformationMatrix.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
+        return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
+      }
+      let newIndices = renderMesh.mesh.indices.map {
+        $0 + UInt32(vertices.count)
+      }
+      
+      vertices.append(contentsOf: newVertices)
+      indices.append(contentsOf: newIndices)
     }
+    try transferVertices(vertices: vertices, buffer: vertexBuffer)
+    try transferVertexIndices(indices: indices, buffer: indexBuffer)
   }
 
   func createVertexBuffer() throws {
+    (vertexBuffer, vertexBufferMemory) = try createBuffer(
+      size: 48 * 1000,
+      usage: [.vertexBuffer, .transferDst],
+      properties: [.hostVisible, .hostCoherent])
+  }
+
+  func transferVertices(vertices: [Vertex], buffer: Buffer) throws {
     let vertexData = vertices.flatMap { $0.data }
 
     let bufferSize = DeviceSize(MemoryLayout<Float>.size * vertexData.count)
@@ -809,18 +833,17 @@ public class VulkanRenderer {
     cpuVertexBufferMemory!.copyMemory(from: vertexData, byteCount: MemoryLayout<Float>.size * vertexData.count)
     stagingBufferMemory.unmapMemory()
 
-    (vertexBuffer, vertexBufferMemory) = try createBuffer(
-      size: bufferSize,
-      usage: [.vertexBuffer, .transferDst],
-      properties: [.hostVisible, .hostCoherent])
-
-    try copyBuffer(srcBuffer: stagingBuffer, dstBuffer: vertexBuffer, size: bufferSize)
+    try copyBuffer(srcBuffer: stagingBuffer, dstBuffer: buffer, size: bufferSize)
 
     stagingBuffer.destroy()
     stagingBufferMemory.free()
   }
 
   func createIndexBuffer() throws {
+    (indexBuffer, indexBufferMemory) = try createBuffer(size: 4 * 1000, usage: [.transferDst, .indexBuffer], properties: [.deviceLocal])
+  }
+
+  func transferVertexIndices(indices: [UInt32], buffer: Buffer) throws {
     let bufferSize = DeviceSize(MemoryLayout.size(ofValue: indices[0]) * indices.count)
 
     let (stagingBuffer, stagingBufferMemory) = try createBuffer(size: bufferSize, usage: .transferSrc, properties: [.hostVisible, .hostCoherent])
@@ -830,9 +853,7 @@ public class VulkanRenderer {
     dataPointer?.copyMemory(from: indices, byteCount: Int(bufferSize))
     stagingBufferMemory.unmapMemory()
 
-    (indexBuffer, indexBufferMemory) = try createBuffer(size: bufferSize, usage: [.transferDst, .indexBuffer], properties: [.deviceLocal])
-
-    try copyBuffer(srcBuffer: stagingBuffer, dstBuffer: indexBuffer, size: bufferSize)
+    try copyBuffer(srcBuffer: stagingBuffer, dstBuffer: buffer, size: bufferSize)
 
     stagingBuffer.destroy()
     stagingBufferMemory.free()

@@ -2,6 +2,7 @@ import Foundation
 import SwiftGUI
 import ApplicationBackendSDL2
 import ApplicationBackendSDL2Vulkan
+import FirebladeECS
 
 let backend = try ApplicationBackendSDL2.getInstance()
 let applicationEventSubscription = backend.eventPublisher.sink(receiveValue: handleApplicationEvent)
@@ -18,6 +19,20 @@ let renderer = try VulkanRenderer(window: window)
 let windowSizeSubscription = window.sizeChanged.sink { _ in
   try! renderer.recreateSwapchain()
 }
+
+let nexus = Nexus()
+for index in 0..<10 {
+  let entity = nexus.createEntity()
+  entity.assign(RenderMesh(CubeMesh()))
+  entity.assign(LocalToWorld(transformationMatrix: FMat4([
+    1, 0, 0, Float(index),
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1
+  ])))
+}
+
+try renderer.updateVertexData(nexus: nexus)
 
 func mainLoop() throws {
   try backend.processEvents()
