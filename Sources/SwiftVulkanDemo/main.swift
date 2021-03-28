@@ -21,20 +21,38 @@ let windowSizeSubscription = window.sizeChanged.sink { _ in
 }
 
 let nexus = Nexus()
-for index in 0..<10 {
+
+var nextCubeIndex = 0
+
+func createNewCube() {
   let entity = nexus.createEntity()
   entity.assign(RenderMesh(CubeMesh()))
   entity.assign(LocalToWorld(transformationMatrix: FMat4([
-    1, 0, 0, Float(index),
+    1, 0, 0, Float(nextCubeIndex),
     0, 1, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, 1
   ])))
+
+  nextCubeIndex += 1
 }
 
-try renderer.updateVertexData(nexus: nexus)
+createNewCube()
+try renderer.updateRenderData(nexus: nexus)
+
+var lastLoopTime = Date.timeIntervalSinceReferenceDate
+var lastNewCubeTime = Date.timeIntervalSinceReferenceDate
 
 func mainLoop() throws {
+  let startTime = Date.timeIntervalSinceReferenceDate
+  if startTime - lastNewCubeTime > 1 {
+    createNewCube()
+    try renderer.updateRenderData(nexus: nexus)
+    print("ADD NEW")
+    lastNewCubeTime = startTime
+  }
+  lastLoopTime = startTime
+
   try backend.processEvents()
 
   try renderer.drawFrame()
