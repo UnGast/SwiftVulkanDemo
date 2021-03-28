@@ -1,5 +1,8 @@
 // swift-tools-version:5.3
 import PackageDescription
+import Foundation
+
+setenv("SWIFT_GUI_ENABLE_BACKENDS", "vulkan", 1)
 
 let package = Package(
     name: "SwiftVulkanDemo",
@@ -13,26 +16,29 @@ let package = Package(
         .package(name: "Vulkan", url: "https://github.com/UnGast/SwiftVulkan.git", .branch("master")),
         .package(name: "Swim", url: "https://github.com/t-ae/swim.git", .branch("master")),
         .package(name: "GfxMath", url: "https://github.com/UnGast/swift-gfx-math.git", .branch("master")),
-        .package(name: "SwiftGUI", url: "https://github.com/UnGast/swift-gui.git", .branch("master")),
+        .package(url: "https://github.com/cx-org/CombineX.git", .branch("master")),
+        .package(name: "SwiftGUI", path: "../../swift-gui"),
         .package(path: "../SwiftGUIBackendSkia")
     ],
     targets: [
         .target(
             name: "SwiftVulkanDemo",
             dependencies: [
-                "CSDL2",
-                "CVulkan",
                 "Vulkan",
-                "CSDL2Vulkan",
                 "Swim",
                 "CTinyObjLoader",
                 "GfxMath",
+                "CSDL2",
+                "CombineX",
+                .product(name: "CSDL2Vulkan", package: "CSDL2"),
                 "SwiftGUI",
                 .product(name: "SwiftGUIBackendSkia", package: "SwiftGUIBackendSkia"),
-                .product(name: "ApplicationBackendSDL2", package: "SwiftGUI")],
+                .product(name: "ApplicationBackendSDL2", package: "SwiftGUI"),
+                .product(name: "ApplicationBackendSDL2Vulkan", package: "SwiftGUI")],
             resources: [
                 .copy("Resources")
-            ]
+            ],
+            swiftSettings: [.define("ENABLE_VULKAN")]
         ),
         .target(name: "CTinyObjLoader")
     ]
