@@ -47,7 +47,25 @@ func handleWindowInputEvent(_ event: WindowInputEvent) {
       renderer.camera.yaw += Float(event.positionDelta.x)
       renderer.camera.pitch -= Float(event.positionDelta.y)
       renderer.camera.pitch = min(89, max(-89, renderer.camera.pitch))
+    case let event as WindowMouseButtonDownEvent:
+      backend.relativeMouseModeEnabled = true
+    case let event as WindowKeyDownEvent:
+      let speed = Float(0.5)
+      switch event.key {
+        case .arrowUp:
+          renderer.camera.position += renderer.camera.forward * speed
+        case .arrowDown:
+          renderer.camera.position -= renderer.camera.forward * speed
+        case .arrowRight:
+          renderer.camera.position += renderer.camera.right * speed
+        case .arrowLeft:
+          renderer.camera.position -= renderer.camera.right * speed
+        case .escape:
+          backend.relativeMouseModeEnabled = false
+        default:
+          break
+      }
   default:
-    print("WINDOW EVENt", event)
+    print("unused window event", event)
   }
 }
