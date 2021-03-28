@@ -1,8 +1,5 @@
 // swift-tools-version:5.3
 import PackageDescription
-import Foundation
-
-setenv("SWIFT_GUI_ENABLE_BACKENDS", "vulkan", 1)
 
 let package = Package(
     name: "SwiftVulkanDemo",
