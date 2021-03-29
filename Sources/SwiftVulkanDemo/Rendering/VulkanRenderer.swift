@@ -708,7 +708,7 @@ public class VulkanRenderer {
   }
 
   func createTextureImage() throws {
-    let image = try CpuImage(contentsOf: Bundle.module.url(forResource: "viking_room", withExtension: "png")!)
+    //let image = try CpuImage(contentsOf: Bundle.module.url(forResource: "viking_room", withExtension: "png")!)
     let imageWidth = guiSurface.size.width
     let imageHeight = guiSurface.size.height
     let channelCount = 4 

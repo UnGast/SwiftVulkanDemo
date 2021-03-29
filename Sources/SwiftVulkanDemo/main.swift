@@ -22,6 +22,16 @@ let windowSizeSubscription = window.sizeChanged.sink { _ in
 
 var gameObjects = [GameObject]()
 
+let vikingRoom = MeshGameObject(mesh: try! Mesh.loadObj(fileUrl: Bundle.module.url(forResource: "viking_room", withExtension: "obj")!))
+vikingRoom.transformation = FMat4([
+  1, 0, 0, 10,
+  0, 1, 0, 5,
+  0, 0, 1, 0,
+  0, 0, 0, 1
+])
+gameObjects.append(vikingRoom)
+gameObjects.append(MeshGameObject(mesh: Mesh.plane(size: FVec2(100, 100))))
+
 var nextCubeIndex = 0
 
 func createNewCube() {

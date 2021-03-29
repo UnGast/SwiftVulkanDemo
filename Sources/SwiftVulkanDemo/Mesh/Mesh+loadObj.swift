@@ -1,22 +1,11 @@
 import CTinyObjLoader
 import Foundation
 import GfxMath
-/*
-public class ObjMesh: Mesh {
-  public var rotationQuaternion: Quaternion<Float> = .identity
-  public var modelTransformation: FMat4 = .identity
-  private let fileUrl: URL
 
-  public var vertices: [Vertex] = []
-  public var indices: [UInt32] = []
-
-  public init(fileUrl: URL) {
-    self.fileUrl = fileUrl
-  }
-
-  public func load() throws {
-    vertices = []
-    indices = []
+extension Mesh {
+  public static func loadObj(fileUrl: URL) throws -> Mesh {
+    var vertices = [Vertex]()
+    var indices = [UInt32]()
 
     var pAttrib = UnsafeMutablePointer<tinyobj_attrib_t>.allocate(capacity: 1)
     tinyobj_attrib_init(pAttrib)
@@ -74,5 +63,7 @@ public class ObjMesh: Mesh {
         }
       }
     }
+
+    return Mesh(vertices: vertices, indices: indices)
   }
-}*/
+}
