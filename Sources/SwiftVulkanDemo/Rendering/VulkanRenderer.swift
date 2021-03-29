@@ -46,6 +46,8 @@ public class VulkanRenderer {
   @Deferred var indexBufferMemory: DeviceMemory
   @Deferred var uniformBuffers: [Buffer]
   @Deferred var uniformBuffersMemory: [DeviceMemory]
+  @Deferred var mainMaterial: Material
+  @Deferred var materialSystem: MaterialSystem
   @Deferred var descriptorPool: DescriptorPool
   @Deferred var descriptorSets: [DescriptorSet]
   @Deferred var commandBuffers: [CommandBuffer]
@@ -101,6 +103,8 @@ public class VulkanRenderer {
 
     try self.createRenderPass()
 
+    self.materialSystem = try MaterialSystem(vulkanRenderer: self)
+
     try self.createDescriptorSetLayout()
 
     try self.createGraphicsPipeline()
@@ -126,6 +130,9 @@ public class VulkanRenderer {
     try self.createIndexBuffer(size: 4 * 1)
 
     try self.createUniformBuffers()
+
+    self.mainMaterial = try Material.load(textureUrl: Bundle.module.url(forResource: "viking_room", withExtension: "png")!)
+    self.materialSystem.buildForMaterial(self.mainMaterial)
 
     try self.createDescriptorPool()
 
@@ -343,16 +350,16 @@ public class VulkanRenderer {
       immutableSamplers: nil
     )
 
-    let samplerLayoutBinding = DescriptorSetLayoutBinding(
+    /*let samplerLayoutBinding = DescriptorSetLayoutBinding(
       binding: 1,
       descriptorType: .combinedImageSampler,
       descriptorCount: 1,
       stageFlags: .fragment,
       immutableSamplers: nil
-    )
+    )*/
 
     descriptorSetLayout = try DescriptorSetLayout.create(device: device, createInfo: DescriptorSetLayoutCreateInfo(
-      flags: .none, bindings: [uboLayoutBinding, samplerLayoutBinding]
+      flags: .none, bindings: [uboLayoutBinding, /*samplerLayoutBinding*/]
     ))
   }
 
@@ -449,7 +456,7 @@ public class VulkanRenderer {
 
     let pipelineLayoutInfo = PipelineLayoutCreateInfo(
       flags: .none,
-      setLayouts: [descriptorSetLayout],
+      setLayouts: [descriptorSetLayout, materialSystem.descriptorSetLayout],
       pushConstantRanges: [])
 
     let pipelineLayout = try PipelineLayout.create(device: device, createInfo: pipelineLayoutInfo)
@@ -927,9 +934,9 @@ public class VulkanRenderer {
         buffer: uniformBuffers[i], offset: 0, range: DeviceSize(UniformBufferObject.dataSize)
       )
 
-      let imageInfo = DescriptorImageInfo(
+      /*let imageInfo = DescriptorImageInfo(
         sampler: textureSampler, imageView: textureImageView, imageLayout: .shaderReadOnlyOptimal 
-      )
+      )*/
 
       let descriptorWrites = [
         WriteDescriptorSet(
@@ -941,7 +948,7 @@ public class VulkanRenderer {
           imageInfo: [],
           bufferInfo: [bufferInfo],
           texelBufferView: []),
-        WriteDescriptorSet(
+        /*WriteDescriptorSet(
           dstSet: descriptorSets[i],
           dstBinding: 1,
           dstArrayElement: 0,
@@ -949,7 +956,7 @@ public class VulkanRenderer {
           descriptorType: .combinedImageSampler,
           imageInfo: [imageInfo],
           bufferInfo: [],
-          texelBufferView: [])
+          texelBufferView: [])*/
       ]
 
       device.updateDescriptorSets(descriptorWrites: descriptorWrites, descriptorCopies: nil)
@@ -987,7 +994,7 @@ public class VulkanRenderer {
         pipelineBindPoint: .graphics,
         layout: pipelineLayout,
         firstSet: 0,
-        descriptorSets: [descriptorSets[index]],
+        descriptorSets: [descriptorSets[index], materialSystem.materialRenderData[ObjectIdentifier(mainMaterial)]!.descriptorSets[index]],
         dynamicOffsets: [])
       commandBuffer.drawIndexed(indexCount: UInt32(indices.count), instanceCount: 1, firstIndex: 0, vertexOffset: 0, firstInstance: 0)
 
