@@ -20,25 +20,25 @@ let windowSizeSubscription = window.sizeChanged.sink { _ in
   try! renderer.recreateSwapchain()
 }
 
-let nexus = Nexus()
+var gameObjects = [GameObject]()
 
 var nextCubeIndex = 0
 
 func createNewCube() {
-  let entity = nexus.createEntity()
-  entity.assign(RenderMesh(CubeMesh()))
-  entity.assign(LocalToWorld(transformationMatrix: FMat4([
+  let gameObject = MeshGameObject(mesh: Mesh.cuboid())
+  gameObject.transformation = FMat4([
     1, 0, 0, Float(nextCubeIndex),
     0, 1, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, 1
-  ])))
+  ])
+  gameObjects.append(gameObject)
 
   nextCubeIndex += 1
 }
 
 createNewCube()
-try renderer.updateRenderData(nexus: nexus)
+try renderer.updateRenderData(gameObjects: gameObjects)
 
 var lastLoopTime = Date.timeIntervalSinceReferenceDate
 var lastNewCubeTime = Date.timeIntervalSinceReferenceDate
@@ -47,7 +47,7 @@ func mainLoop() throws {
   let startTime = Date.timeIntervalSinceReferenceDate
   if startTime - lastNewCubeTime > 1 {
     createNewCube()
-    try renderer.updateRenderData(nexus: nexus)
+    try renderer.updateRenderData(gameObjects: gameObjects)
     print("ADD NEW")
     lastNewCubeTime = startTime
   }

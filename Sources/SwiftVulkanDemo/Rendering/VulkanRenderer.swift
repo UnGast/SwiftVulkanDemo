@@ -53,9 +53,9 @@ public class VulkanRenderer {
   @Deferred var renderFinishedSemaphores: [Semaphore]
   @Deferred var inFlightFences: [Fence]
 
-  let planeMesh = PlaneMesh()
-  let cubeMesh = CubeMesh()
-  let objMesh = ObjMesh(fileUrl: Bundle.module.url(forResource: "viking_room", withExtension: "obj")!)
+  //let planeMesh = PlaneMesh()
+  //let cubeMesh = CubeMesh()
+  //let objMesh = ObjMesh(fileUrl: Bundle.module.url(forResource: "viking_room", withExtension: "obj")!)
 
   var camera = Camera(position: FVec3([0.01, 0.01, 0.01]))
 
@@ -831,7 +831,7 @@ public class VulkanRenderer {
     stagingBufferMemory.free()
   }
 
-  func updateRenderData(nexus: Nexus) throws {
+  func updateRenderData(gameObjects: [GameObject]) throws {
     /*try objMesh.load()
     objMesh.modelTransformation = FMat4([
       1, 0, 0, 0,
@@ -862,18 +862,19 @@ public class VulkanRenderer {
     vertices = []
     indices = []
 
-    let family = nexus.family(requiresAll: RenderMesh.self, LocalToWorld.self)
-    for (renderMesh, localToWorld) in family {
-      let newVertices: [Vertex] = renderMesh.mesh.vertices.map {
-        let transformedPosition = FVec3(Array(localToWorld.transformationMatrix.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
-        return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
+    for gameObject in gameObjects {
+      if let meshGameObject = gameObject as? MeshGameObject {
+        let newVertices: [Vertex] = meshGameObject.mesh.vertices.map {
+          let transformedPosition = FVec3(Array(gameObject.transformation.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
+          return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
+        }
+        let newIndices = meshGameObject.mesh.indices.map {
+          $0 + UInt32(vertices.count)
+        }
+        
+        vertices.append(contentsOf: newVertices)
+        indices.append(contentsOf: newIndices)
       }
-      let newIndices = renderMesh.mesh.indices.map {
-        $0 + UInt32(vertices.count)
-      }
-      
-      vertices.append(contentsOf: newVertices)
-      indices.append(contentsOf: newIndices)
     }
 
     if vertices.count == 0 || indices.count == 0 {
