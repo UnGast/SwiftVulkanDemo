@@ -132,7 +132,7 @@ public class VulkanRenderer {
     try self.createUniformBuffers()
 
     self.mainMaterial = try Material.load(textureUrl: Bundle.module.url(forResource: "viking_room", withExtension: "png")!)
-    self.materialSystem.buildForMaterial(self.mainMaterial)
+    try self.materialSystem.buildForMaterial(self.mainMaterial)
 
     try self.createDescriptorPool()
 

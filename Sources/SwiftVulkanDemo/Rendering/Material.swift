@@ -2,7 +2,7 @@ import Foundation
 import Swim
 
 public class Material {
-  private let texture: Image<RGBA, UInt8>
+  public let texture: Image<RGBA, UInt8>
 
   public init(texture: Image<RGBA, UInt8>) {
     self.texture = texture
