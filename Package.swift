@@ -16,7 +16,8 @@ let package = Package(
         .package(url: "https://github.com/cx-org/CombineX.git", .branch("master")),
         .package(name: "SwiftGUI", path: "../../swift-gui"),
         .package(path: "../SwiftGUIBackendSkia"),
-        .package(name: "FirebladeECS", url: "https://github.com/fireblade-engine/ecs.git", from: "0.17.4")
+        .package(name: "FirebladeECS", url: "https://github.com/fireblade-engine/ecs.git", from: "0.17.4"),
+        .package(url: "https://github.com/nicklockwood/Euclid.git", .upToNextMinor(from: "0.3.0"))
     ],
     targets: [
         .target(
@@ -33,7 +34,8 @@ let package = Package(
                 .product(name: "SwiftGUIBackendSkia", package: "SwiftGUIBackendSkia"),
                 .product(name: "ApplicationBackendSDL2", package: "SwiftGUI"),
                 .product(name: "ApplicationBackendSDL2Vulkan", package: "SwiftGUI"),
-                "FirebladeECS"],
+                "FirebladeECS",
+                "Euclid"],
             resources: [
                 .copy("Resources")
             ],

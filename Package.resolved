@@ -56,6 +56,15 @@
         }
       },
       {
+        "package": "Euclid",
+        "repositoryURL": "https://github.com/nicklockwood/Euclid.git",
+        "state": {
+          "branch": null,
+          "revision": "eeadb69ea475b22c41c9cfe5e31153ed0200673f",
+          "version": "0.3.6"
+        }
+      },
+      {
         "package": "Path.swift",
         "repositoryURL": "https://github.com/mxcl/Path.swift.git",
         "state": {
