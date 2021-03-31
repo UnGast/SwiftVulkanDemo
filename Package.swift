@@ -10,7 +10,7 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "CSDL2", url: "https://github.com/UnGast/CSDL2.git", .branch("master")),
-        .package(name: "Vulkan", url: "https://github.com/UnGast/SwiftVulkan.git", .branch("master")),
+        .package(name: "Vulkan", path: "../Vulkan"),
         .package(name: "Swim", url: "https://github.com/t-ae/swim.git", .branch("master")),
         .package(name: "GfxMath", url: "https://github.com/UnGast/swift-gfx-math.git", .branch("master")),
         .package(url: "https://github.com/cx-org/CombineX.git", .branch("master")),

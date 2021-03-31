@@ -1,4 +1,4 @@
-import SwiftGUI
+/*import SwiftGUI
 import SwiftGUIBackendSkia
 
 class GUI {
@@ -61,4 +61,4 @@ class GUI {
       root.draw(drawingContext)
     }
   }
-}
+}*/

@@ -436,10 +436,17 @@ public class VulkanRenderer {
       dynamicStates: dynamicStates
     )
 
+    let pushConstantRange = PushConstantRange(
+      stageFlags: .vertex,
+      offset: 0,
+      size: UInt32(MemoryLayout<Float>.size * 16)
+    )
+
+    print("SET LAYOUTS", descriptorSetLayout.pointer, materialSystem.descriptorSetLayout.pointer)
     let pipelineLayoutInfo = PipelineLayoutCreateInfo(
       flags: .none,
       setLayouts: [descriptorSetLayout, materialSystem.descriptorSetLayout],
-      pushConstantRanges: [])
+      pushConstantRanges: [pushConstantRange])
 
     let pipelineLayout = try PipelineLayout.create(device: device, createInfo: pipelineLayoutInfo)
 
@@ -878,6 +885,125 @@ public class VulkanRenderer {
     }
   }
 
+  func createSyncObjects() throws {
+    imageAvailableSemaphores = try (0..<maxFramesInFlight).map { _ in 
+      try Semaphore.create(info: SemaphoreCreateInfo(
+        flags: .none
+      ), device: device)
+    }
+
+    renderFinishedSemaphores = try (0..<maxFramesInFlight).map { _ in 
+      try Semaphore.create(info: SemaphoreCreateInfo(
+        flags: .none
+      ), device: device)
+    }
+
+    inFlightFences = try (0..<maxFramesInFlight).map { _ in
+      try Fence(device: device, createInfo: FenceCreateInfo(
+        flags: [.signaled]
+      ))
+    }
+  }
+
+  func drawFrame(gameObjects: [GameObject]) throws {
+    let sceneDrawData = try generateSceneDrawData(gameObjects: gameObjects)
+    try updateRenderBuffers(with: sceneDrawData)
+
+    let imageAvailableSemaphore = imageAvailableSemaphores[currentFrameIndex]
+    let renderFinishedSemaphore = renderFinishedSemaphores[currentFrameIndex]
+    let inFlightFence = inFlightFences[currentFrameIndex]
+
+    inFlightFence.wait(timeout: .max)
+
+    let (imageIndex, acquireImageResult) = try swapchain.acquireNextImage(timeout: .max, semaphore: imageAvailableSemaphore, fence: nil)
+    if let usedCommandBuffer = usedCommandBuffers[Int(imageIndex)] {
+      CommandBuffer.free(commandBuffers: [usedCommandBuffer], device: device, commandPool: commandPool)
+    }
+
+    if acquireImageResult == .errorOutOfDateKhr {
+      device.waitIdle()
+      queue.waitIdle()
+      cleanupSwapchain()
+      try recreateSwapchain()
+      return
+    } else if acquireImageResult != .success && acquireImageResult != .suboptimalKhr {
+      throw UnexpectedVulkanResultError(acquireImageResult)
+    }
+
+    if let previousFence = imagesInFlightWithFences[imageIndex] {
+      previousFence.wait(timeout: .max)
+    }
+    imagesInFlightWithFences[imageIndex] = inFlightFence
+    inFlightFence.reset()
+
+    let commandBuffer = try recordCommandBuffer(framebufferIndex: Int(imageIndex), sceneDrawData: sceneDrawData)
+
+    try updateUniformBuffer(currentImage: imageIndex)
+
+    try queue.submit(submits: [
+      SubmitInfo(
+        waitSemaphores: [imageAvailableSemaphore],
+        waitDstStageMask: [.colorAttachmentOutput],
+        commandBuffers: [commandBuffer],
+        signalSemaphores: [renderFinishedSemaphore]
+      )
+    ], fence: inFlightFence)
+
+    let presentResult = queue.present(presentInfo: PresentInfoKHR(
+      waitSemaphores: [renderFinishedSemaphore],
+      swapchains: [swapchain],
+      imageIndices: [imageIndex],
+      results: ()
+    ))
+
+    if presentResult == .errorOutOfDateKhr || presentResult == .suboptimalKhr {
+      device.waitIdle()
+      queue.waitIdle()
+      cleanupSwapchain()
+      try recreateSwapchain()
+      return
+    } else if presentResult != .success {
+      throw UnexpectedVulkanResultError(acquireImageResult)
+    }
+
+    usedCommandBuffers[Int(imageIndex)] = commandBuffer
+
+    currentFrameIndex += 1
+    currentFrameIndex %= maxFramesInFlight
+  }
+
+  func generateSceneDrawData(gameObjects: [GameObject]) throws -> SceneDrawData {
+    let sceneDrawData = SceneDrawData()
+
+    for gameObject in gameObjects {
+      if let meshGameObject = gameObject as? MeshGameObject {
+        let newVertices: [Vertex] = meshGameObject.mesh.vertices/*meshGameObject.mesh.vertices.map {
+          let transformedPosition = FVec3(Array(gameObject.transformation.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
+          return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
+        }*/
+        let newIndices = meshGameObject.mesh.indices.map {
+          $0 + UInt32(sceneDrawData.vertices.count)
+        }
+        
+        sceneDrawData.meshDrawInfos.append(MeshDrawInfo(
+          mesh: meshGameObject.mesh,
+          transformation: meshGameObject.transformation,
+          indicesStartIndex: UInt32(sceneDrawData.indices.count),
+          indicesCount: UInt32(newIndices.count)
+        ))
+        sceneDrawData.vertices.append(contentsOf: newVertices)
+        sceneDrawData.indices.append(contentsOf: newIndices)
+      }
+    }
+
+    return sceneDrawData
+  }
+
+  func updateRenderBuffers(with sceneDrawData: SceneDrawData) throws {
+    try transferVertices(vertices: sceneDrawData.vertices)
+    try transferVertexIndices(indices: sceneDrawData.indices)
+  }
+
   func recordCommandBuffer(framebufferIndex: Int, sceneDrawData: SceneDrawData) throws -> CommandBuffer {
     let framebuffer = framebuffers[framebufferIndex]
 
@@ -913,8 +1039,8 @@ public class VulkanRenderer {
       descriptorSets: [descriptorSets[framebufferIndex], materialSystem.materialRenderData[ObjectIdentifier(mainMaterial)]!.descriptorSets[framebufferIndex]],
       dynamicOffsets: [])
 
-    // TODO: can do multiple draw calls for multiple meshes here!
     for meshDrawInfo in sceneDrawData.meshDrawInfos {
+      commandBuffer.pushConstants(layout: pipelineLayout, stageFlags: .vertex, offset: 0, size: UInt32(MemoryLayout<Float>.size * 16), values: meshDrawInfo.transformation.transposed.elements);
       commandBuffer.drawIndexed(indexCount: meshDrawInfo.indicesCount, instanceCount: 1, firstIndex: meshDrawInfo.indicesStartIndex, vertexOffset: 0, firstInstance: 0)
     }
 
@@ -922,124 +1048,6 @@ public class VulkanRenderer {
     commandBuffer.end()
 
     return commandBuffer
-  }
-
-  func createSyncObjects() throws {
-    imageAvailableSemaphores = try (0..<maxFramesInFlight).map { _ in 
-      try Semaphore.create(info: SemaphoreCreateInfo(
-        flags: .none
-      ), device: device)
-    }
-
-    renderFinishedSemaphores = try (0..<maxFramesInFlight).map { _ in 
-      try Semaphore.create(info: SemaphoreCreateInfo(
-        flags: .none
-      ), device: device)
-    }
-
-    inFlightFences = try (0..<maxFramesInFlight).map { _ in
-      try Fence(device: device, createInfo: FenceCreateInfo(
-        flags: [.signaled]
-      ))
-    }
-  }
-
-  func generateSceneDrawData(gameObjects: [GameObject]) throws -> SceneDrawData {
-    let sceneDrawData = SceneDrawData()
-
-    for gameObject in gameObjects {
-      if let meshGameObject = gameObject as? MeshGameObject {
-        let newVertices: [Vertex] = meshGameObject.mesh.vertices/*meshGameObject.mesh.vertices.map {
-          let transformedPosition = FVec3(Array(gameObject.transformation.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
-          return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
-        }*/
-        let newIndices = meshGameObject.mesh.indices.map {
-          $0 + UInt32(sceneDrawData.vertices.count)
-        }
-        
-        sceneDrawData.meshDrawInfos.append(MeshDrawInfo(
-          mesh: meshGameObject.mesh,
-          indicesStartIndex: UInt32(sceneDrawData.indices.count),
-          indicesCount: UInt32(newIndices.count)
-        ))
-        sceneDrawData.vertices.append(contentsOf: newVertices)
-        sceneDrawData.indices.append(contentsOf: newIndices)
-      }
-    }
-
-    return sceneDrawData
-  }
-
-  func updateRenderBuffers(with sceneDrawData: SceneDrawData) throws {
-    try transferVertices(vertices: sceneDrawData.vertices)
-    try transferVertexIndices(indices: sceneDrawData.indices)
-  }
-
-  func drawFrame(gameObjects: [GameObject]) throws {
-    let sceneDrawData = try generateSceneDrawData(gameObjects: gameObjects)
-    try updateRenderBuffers(with: sceneDrawData)
-
-    let imageAvailableSemaphore = imageAvailableSemaphores[currentFrameIndex]
-    let renderFinishedSemaphore = renderFinishedSemaphores[currentFrameIndex]
-    let inFlightFence = inFlightFences[currentFrameIndex]
-
-    inFlightFence.wait(timeout: .max)
-
-    let (imageIndex, acquireImageResult) = try swapchain.acquireNextImage(timeout: .max, semaphore: imageAvailableSemaphore, fence: nil)
-    if let usedCommandBuffer = usedCommandBuffers[Int(imageIndex)] {
-      CommandBuffer.free(commandBuffers: [usedCommandBuffer], device: device, commandPool: commandPool)
-    }
-
-    if acquireImageResult == .errorOutOfDateKhr {
-      device.waitIdle()
-      queue.waitIdle()
-      cleanupSwapchain()
-      try recreateSwapchain()
-      return
-    } else if acquireImageResult != .success && acquireImageResult != .suboptimalKhr {
-      throw UnexpectedVulkanResultError(acquireImageResult)
-    }
-
-    if let previousFence = imagesInFlightWithFences[imageIndex] {
-      previousFence.wait(timeout: .max)
-    }
-    imagesInFlightWithFences[imageIndex] = inFlightFence
-    inFlightFence.reset()
-
-    try updateUniformBuffer(currentImage: imageIndex)
-
-    let commandBuffer = try recordCommandBuffer(framebufferIndex: Int(imageIndex), sceneDrawData: sceneDrawData)
-
-    try queue.submit(submits: [
-      SubmitInfo(
-        waitSemaphores: [imageAvailableSemaphore],
-        waitDstStageMask: [.colorAttachmentOutput],
-        commandBuffers: [commandBuffer],
-        signalSemaphores: [renderFinishedSemaphore]
-      )
-    ], fence: inFlightFence)
-
-    let presentResult = queue.present(presentInfo: PresentInfoKHR(
-      waitSemaphores: [renderFinishedSemaphore],
-      swapchains: [swapchain],
-      imageIndices: [imageIndex],
-      results: ()
-    ))
-
-    if presentResult == .errorOutOfDateKhr || presentResult == .suboptimalKhr {
-      device.waitIdle()
-      queue.waitIdle()
-      cleanupSwapchain()
-      try recreateSwapchain()
-      return
-    } else if presentResult != .success {
-      throw UnexpectedVulkanResultError(acquireImageResult)
-    }
-
-    usedCommandBuffers[Int(imageIndex)] = commandBuffer
-
-    currentFrameIndex += 1
-    currentFrameIndex %= maxFramesInFlight
   }
 
   func updateUniformBuffer(currentImage: UInt32) throws {

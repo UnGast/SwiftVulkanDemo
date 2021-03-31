@@ -119,15 +119,6 @@
         }
       },
       {
-        "package": "Vulkan",
-        "repositoryURL": "https://github.com/UnGast/SwiftVulkan.git",
-        "state": {
-          "branch": "master",
-          "revision": "047e291f564f0f529db9eff8e67002a83e1b7265",
-          "version": null
-        }
-      },
-      {
         "package": "XML",
         "repositoryURL": "https://github.com/kelvin13/swiftxml",
         "state": {
