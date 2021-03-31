@@ -50,10 +50,10 @@ public class VulkanRenderer {
   @Deferred var materialSystem: MaterialSystem
   @Deferred var descriptorPool: DescriptorPool
   @Deferred var descriptorSets: [DescriptorSet]
-  @Deferred var commandBuffers: [CommandBuffer]
   @Deferred var imageAvailableSemaphores: [Semaphore]
   @Deferred var renderFinishedSemaphores: [Semaphore]
   @Deferred var inFlightFences: [Fence]
+  var usedCommandBuffers: [Int: CommandBuffer] = [:]
 
   //let planeMesh = PlaneMesh()
   //let cubeMesh = CubeMesh()
@@ -137,8 +137,6 @@ public class VulkanRenderer {
     try self.createDescriptorPool()
 
     try self.createDescriptorSets()
-
-    try self.createCommandBuffers()
 
     try self.createSyncObjects()
   }
@@ -890,9 +888,6 @@ public class VulkanRenderer {
 
     try transferVertices(vertices: vertices)
     try transferVertexIndices(indices: indices)
-
-    CommandBuffer.free(commandBuffers: commandBuffers, device: device, commandPool: commandPool)
-    try self.createCommandBuffers()
   }
 
   func createUniformBuffers() throws {
@@ -963,46 +958,48 @@ public class VulkanRenderer {
     }
   }
 
-  func createCommandBuffers() throws {
-    self.commandBuffers = try framebuffers.enumerated().map { (index, framebuffer) in
-      let commandBuffer = try CommandBuffer.allocate(device: device, info: CommandBufferAllocateInfo(
-        commandPool: commandPool,
-        level: .primary,
-        commandBufferCount: 1))
+  func recordCommandBuffer(framebufferIndex: Int) throws -> CommandBuffer {
+    let framebuffer = framebuffers[framebufferIndex]
 
-      commandBuffer.begin(CommandBufferBeginInfo(
-        flags: [],
-        inheritanceInfo: nil))
+    let commandBuffer = try CommandBuffer.allocate(device: device, info: CommandBufferAllocateInfo(
+      commandPool: commandPool,
+      level: .primary,
+      commandBufferCount: 1))
 
-      commandBuffer.beginRenderPass(beginInfo: RenderPassBeginInfo(
-        renderPass: renderPass,
-        framebuffer: framebuffer,
-        renderArea: Rect2D(
-          offset: Offset2D(x: 0, y: 0), extent: swapchainExtent
-        ),
-        clearValues: [
-          ClearColorValue.float32(0, 0, 0, 1).eraseToAny(),
-          ClearDepthStencilValue(depth: 1, stencil: 0).eraseToAny()]
-      ), contents: .inline)
+    commandBuffer.begin(CommandBufferBeginInfo(
+      flags: [],
+      inheritanceInfo: nil))
 
-      commandBuffer.bindPipeline(pipelineBindPoint: .graphics, pipeline: graphicsPipeline)
+    commandBuffer.beginRenderPass(beginInfo: RenderPassBeginInfo(
+      renderPass: renderPass,
+      framebuffer: framebuffer,
+      renderArea: Rect2D(
+        offset: Offset2D(x: 0, y: 0), extent: swapchainExtent
+      ),
+      clearValues: [
+        ClearColorValue.float32(0, 0, 0, 1).eraseToAny(),
+        ClearDepthStencilValue(depth: 1, stencil: 0).eraseToAny()]
+    ), contents: .inline)
 
-      commandBuffer.bindVertexBuffers(firstBinding: 0, buffers: [vertexBuffer], offsets: [0])
-      commandBuffer.bindIndexBuffer(buffer: indexBuffer, offset: 0, indexType: VK_INDEX_TYPE_UINT32)
+    commandBuffer.bindPipeline(pipelineBindPoint: .graphics, pipeline: graphicsPipeline)
 
-      commandBuffer.bindDescriptorSets(
-        pipelineBindPoint: .graphics,
-        layout: pipelineLayout,
-        firstSet: 0,
-        descriptorSets: [descriptorSets[index], materialSystem.materialRenderData[ObjectIdentifier(mainMaterial)]!.descriptorSets[index]],
-        dynamicOffsets: [])
-      commandBuffer.drawIndexed(indexCount: UInt32(indices.count), instanceCount: 1, firstIndex: 0, vertexOffset: 0, firstInstance: 0)
+    commandBuffer.bindVertexBuffers(firstBinding: 0, buffers: [vertexBuffer], offsets: [0])
+    commandBuffer.bindIndexBuffer(buffer: indexBuffer, offset: 0, indexType: VK_INDEX_TYPE_UINT32)
 
-      commandBuffer.endRenderPass()
-      commandBuffer.end()
+    commandBuffer.bindDescriptorSets(
+      pipelineBindPoint: .graphics,
+      layout: pipelineLayout,
+      firstSet: 0,
+      descriptorSets: [descriptorSets[framebufferIndex], materialSystem.materialRenderData[ObjectIdentifier(mainMaterial)]!.descriptorSets[framebufferIndex]],
+      dynamicOffsets: [])
 
-      return commandBuffer
-    }
+    // TODO: can do multiple draw calls for multiple meshes here!
+    commandBuffer.drawIndexed(indexCount: UInt32(indices.count), instanceCount: 1, firstIndex: 0, vertexOffset: 0, firstInstance: 0)
+
+    commandBuffer.endRenderPass()
+    commandBuffer.end()
+
+    return commandBuffer
   }
 
   func createSyncObjects() throws {
@@ -1049,7 +1046,6 @@ public class VulkanRenderer {
     try createUniformBuffers()
     try createDescriptorPool()
     try createDescriptorSets()
-    try createCommandBuffers()
   }
 
   func cleanupSwapchain() {
@@ -1057,7 +1053,6 @@ public class VulkanRenderer {
     depthImage.destroy()
     depthImageMemory.destroy()
     framebuffers.forEach { $0.destroy() }
-    CommandBuffer.free(commandBuffers: commandBuffers, device: device, commandPool: commandPool)
     graphicsPipeline.destroy()
     renderPass.destroy()
     imageViews.forEach { $0.destroy() }
@@ -1081,6 +1076,9 @@ public class VulkanRenderer {
     inFlightFence.wait(timeout: .max)
 
     let (imageIndex, acquireImageResult) = try swapchain.acquireNextImage(timeout: .max, semaphore: imageAvailableSemaphore, fence: nil)
+    if let usedCommandBuffer = usedCommandBuffers[Int(imageIndex)] {
+      CommandBuffer.free(commandBuffers: [usedCommandBuffer], device: device, commandPool: commandPool)
+    }
 
     if acquireImageResult == .errorOutOfDateKhr {
       device.waitIdle()
@@ -1098,17 +1096,15 @@ public class VulkanRenderer {
     imagesInFlightWithFences[imageIndex] = inFlightFence
     inFlightFence.reset()
 
-    let timestamp = Date.timeIntervalSinceReferenceDate
-    let progress = timestamp.truncatingRemainder(dividingBy: 2) / 2
-    //camera.yaw = Float(progress * 360)
-    //camera.pitch = Float(progress * 360)
     try updateUniformBuffer(currentImage: imageIndex)
+
+    let commandBuffer = try recordCommandBuffer(framebufferIndex: Int(imageIndex))
 
     try queue.submit(submits: [
       SubmitInfo(
         waitSemaphores: [imageAvailableSemaphore],
         waitDstStageMask: [.colorAttachmentOutput],
-        commandBuffers: [commandBuffers[Int(imageIndex)]],
+        commandBuffers: [commandBuffer],
         signalSemaphores: [renderFinishedSemaphore]
       )
     ], fence: inFlightFence)
@@ -1129,6 +1125,8 @@ public class VulkanRenderer {
     } else if presentResult != .success {
       throw UnexpectedVulkanResultError(acquireImageResult)
     }
+
+    usedCommandBuffers[Int(imageIndex)] = commandBuffer
 
     currentFrameIndex += 1
     currentFrameIndex %= maxFramesInFlight

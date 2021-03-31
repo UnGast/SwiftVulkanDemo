@@ -96,7 +96,7 @@
         "repositoryURL": "https://github.com/UnGast/swift-gfx-math.git",
         "state": {
           "branch": "master",
-          "revision": "e82cea0af582f5c0d5b8ff820afbbda9d2eb2747",
+          "revision": "d1ce2eaba72c88e5557f6c18cef1bb05b097b990",
           "version": null
         }
       },
@@ -123,7 +123,7 @@
         "repositoryURL": "https://github.com/UnGast/SwiftVulkan.git",
         "state": {
           "branch": "master",
-          "revision": "ef02ea72c153e5cf00ce956e03d3ea2b87c3c2a2",
+          "revision": "047e291f564f0f529db9eff8e67002a83e1b7265",
           "version": null
         }
       },
