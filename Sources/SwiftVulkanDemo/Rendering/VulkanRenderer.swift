@@ -949,10 +949,10 @@ public class VulkanRenderer {
 
     for gameObject in gameObjects {
       if let meshGameObject = gameObject as? MeshGameObject {
-        let newVertices: [Vertex] = meshGameObject.mesh.vertices.map {
+        let newVertices: [Vertex] = meshGameObject.mesh.vertices/*meshGameObject.mesh.vertices.map {
           let transformedPosition = FVec3(Array(gameObject.transformation.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
           return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
-        }
+        }*/
         let newIndices = meshGameObject.mesh.indices.map {
           $0 + UInt32(sceneDrawData.vertices.count)
         }

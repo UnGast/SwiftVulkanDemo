@@ -68,13 +68,14 @@ func mainLoop() throws {
     print("ADD NEW")
     lastNewCubeTime = startTime
   }
+  print("FPS", 1 / (startTime - lastLoopTime))
   lastLoopTime = startTime
 
   try backend.processEvents()
 
   try renderer.drawFrame(gameObjects: gameObjects)
 
-  DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
+  DispatchQueue.main.async {
     try! mainLoop()
   }
 }
