@@ -55,7 +55,7 @@ public class VulkanRenderer {
 
   var camera = Camera(position: FVec3([0.01, 0.01, 0.01]))
 
-  var vertices: [Vertex] = []/*[
+  /*var vertices: [Vertex] = [][
     Vertex(position: Position3(x: -0.5, y: 0.5, z: 0.5), color: Color(r: 1, g: 0, b: 0), texCoord: Position2(x: 1, y: 0)),
     Vertex(position: Position3(x: 0.5, y: 0.5, z: 0.5), color: Color(r: 1, g: 0, b: 0), texCoord: Position2(x: 0, y: 0)),
     Vertex(position: Position3(x: 0.5, y: -0.5, z: 0.5), color: Color(r: 1, g: 0, b: 0), texCoord: Position2(x: 0, y: 1)),
@@ -67,12 +67,12 @@ public class VulkanRenderer {
     Vertex(position: Position3(x: -0.2, y: -0.2, z: 0.4), color: Color(r: 0, g: 0, b: 1), texCoord: Position2(x: 1, y: 1)),
   ]*/
 
-  var indices: [UInt32] = []/*[
+  /*var indices: [UInt32] = [][
     4, 5, 6, 4, 6, 7,
     0, 1, 2, 0, 2, 3,
   ]*/
 
-  let maxFramesInFlight = 2
+  let maxFramesInFlight = 1
   var currentFrameIndex = 0
   var imagesInFlightWithFences: [UInt32: Fence] = [:]
 
@@ -810,60 +810,6 @@ public class VulkanRenderer {
     stagingBufferMemory.free()
   }
 
-  func updateRenderData(gameObjects: [GameObject]) throws {
-    /*try objMesh.load()
-    objMesh.modelTransformation = FMat4([
-      1, 0, 0, 0,
-      0, 1, 0, 10, 
-      0, 0, 1, 0,
-      0, 0, 0, 1
-    ])
-    objMesh.rotationQuaternion = Quaternion(angle: 35, axis: FVec3(0, 0, 1))
-
-    cubeMesh.modelTransformation = FMat4([
-      1, 0, 0, 0,
-      0, 1, 0, 4,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-    ])
-    cubeMesh.rotationQuaternion = Quaternion(angle: 15, axis: FVec3(1, 0, 0))
-    let meshes: [Mesh] = [cubeMesh, objMesh, planeMesh]
-
-    for mesh in meshes {
-      let newVertices = mesh.transformedVertices
-      let newIndices = mesh.indices.map {
-        $0 + UInt32(vertices.count)
-      }
-      
-      vertices.append(contentsOf: newVertices)
-      indices.append(contentsOf: newIndices)
-    }*/
-    vertices = []
-    indices = []
-
-    for gameObject in gameObjects {
-      if let meshGameObject = gameObject as? MeshGameObject {
-        let newVertices: [Vertex] = meshGameObject.mesh.vertices.map {
-          let transformedPosition = FVec3(Array(gameObject.transformation.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
-          return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
-        }
-        let newIndices = meshGameObject.mesh.indices.map {
-          $0 + UInt32(vertices.count)
-        }
-        
-        vertices.append(contentsOf: newVertices)
-        indices.append(contentsOf: newIndices)
-      }
-    }
-
-    if vertices.count == 0 || indices.count == 0 {
-      return
-    }
-
-    try transferVertices(vertices: vertices)
-    try transferVertexIndices(indices: indices)
-  }
-
   func createUniformBuffers() throws {
     let bufferSize = DeviceSize(UniformBufferObject.dataSize)
 
@@ -932,7 +878,7 @@ public class VulkanRenderer {
     }
   }
 
-  func recordCommandBuffer(framebufferIndex: Int) throws -> CommandBuffer {
+  func recordCommandBuffer(framebufferIndex: Int, sceneDrawData: SceneDrawData) throws -> CommandBuffer {
     let framebuffer = framebuffers[framebufferIndex]
 
     let commandBuffer = try CommandBuffer.allocate(device: device, info: CommandBufferAllocateInfo(
@@ -968,7 +914,9 @@ public class VulkanRenderer {
       dynamicOffsets: [])
 
     // TODO: can do multiple draw calls for multiple meshes here!
-    commandBuffer.drawIndexed(indexCount: UInt32(indices.count), instanceCount: 1, firstIndex: 0, vertexOffset: 0, firstInstance: 0)
+    for meshDrawInfo in sceneDrawData.meshDrawInfos {
+      commandBuffer.drawIndexed(indexCount: meshDrawInfo.indicesCount, instanceCount: 1, firstIndex: meshDrawInfo.indicesStartIndex, vertexOffset: 0, firstInstance: 0)
+    }
 
     commandBuffer.endRenderPass()
     commandBuffer.end()
@@ -996,51 +944,41 @@ public class VulkanRenderer {
     }
   }
 
-  func recreateSwapchain() throws {
-    if window.size.width == 0 || window.size.height == 0 {
-      return
+  func generateSceneDrawData(gameObjects: [GameObject]) throws -> SceneDrawData {
+    let sceneDrawData = SceneDrawData()
+
+    for gameObject in gameObjects {
+      if let meshGameObject = gameObject as? MeshGameObject {
+        let newVertices: [Vertex] = meshGameObject.mesh.vertices.map {
+          let transformedPosition = FVec3(Array(gameObject.transformation.matmul(FVec4($0.position.elements + [1])).elements[0..<3]))
+          return Vertex(position: transformedPosition, color: $0.color, texCoord: $0.texCoord)
+        }
+        let newIndices = meshGameObject.mesh.indices.map {
+          $0 + UInt32(sceneDrawData.vertices.count)
+        }
+        
+        sceneDrawData.meshDrawInfos.append(MeshDrawInfo(
+          mesh: meshGameObject.mesh,
+          indicesStartIndex: UInt32(sceneDrawData.indices.count),
+          indicesCount: UInt32(newIndices.count)
+        ))
+        sceneDrawData.vertices.append(contentsOf: newVertices)
+        sceneDrawData.indices.append(contentsOf: newIndices)
+      }
     }
-    /*var windowWidth: Int32 = 0
-    var windowHeight: Int32 = 0
-    SDL_GetWindowSize(window, &windowWidth, &windowHeight)
-    var event = SDL_Event()
-    while windowWidth == 0 || windowHeight == 0 {
-      SDL_WaitEvent(&event)
-      SDL_GetWindowSize(window, &windowWidth, &windowHeight)
-    }*/
 
-    device.waitIdle()
-
-    try createSwapchain()
-    try createImageViews()
-    try createRenderPass()
-    try createGraphicsPipeline()
-    try createDepthResources()
-    try createFramebuffers()
-    try createUniformBuffers()
-    try createDescriptorPool()
-    try createDescriptorSets()
+    return sceneDrawData
   }
 
-  func cleanupSwapchain() {
-    depthImageView.destroy()
-    depthImage.destroy()
-    depthImageMemory.destroy()
-    framebuffers.forEach { $0.destroy() }
-    graphicsPipeline.destroy()
-    renderPass.destroy()
-    imageViews.forEach { $0.destroy() }
-    swapchain.destroy()
-
-    for i in 0..<uniformBuffers.count {
-      uniformBuffers[i].destroy()
-      uniformBuffersMemory[i].free()
-    }
-
-    descriptorPool.destroy()
+  func updateRenderBuffers(with sceneDrawData: SceneDrawData) throws {
+    try transferVertices(vertices: sceneDrawData.vertices)
+    try transferVertexIndices(indices: sceneDrawData.indices)
   }
 
   func drawFrame(gameObjects: [GameObject]) throws {
+    let sceneDrawData = try generateSceneDrawData(gameObjects: gameObjects)
+    try updateRenderBuffers(with: sceneDrawData)
+
     let imageAvailableSemaphore = imageAvailableSemaphores[currentFrameIndex]
     let renderFinishedSemaphore = renderFinishedSemaphores[currentFrameIndex]
     let inFlightFence = inFlightFences[currentFrameIndex]
@@ -1070,7 +1008,7 @@ public class VulkanRenderer {
 
     try updateUniformBuffer(currentImage: imageIndex)
 
-    let commandBuffer = try recordCommandBuffer(framebufferIndex: Int(imageIndex))
+    let commandBuffer = try recordCommandBuffer(framebufferIndex: Int(imageIndex), sceneDrawData: sceneDrawData)
 
     try queue.submit(submits: [
       SubmitInfo(
@@ -1131,39 +1069,49 @@ public class VulkanRenderer {
     uniformBuffersMemory[Int(currentImage)].unmapMemory()
   }
 
-  /*func mainLoop() throws {
-    /*var event = SDL_Event()
-    event.type = 0
-    while SDL_PollEvent(&event) != 0 {
-      if event.type == SDL_QUIT.rawValue {
-        device.waitIdle()
-        exit(0)
-      } else if event.type == SDL_KEYDOWN.rawValue {
-        let speed = Float(0.5)
-
-        if event.key.keysym.sym == SDLK_UP {
-          camera.position += camera.forward * speed
-        } else if event.key.keysym.sym == SDLK_DOWN {
-          camera.position -= camera.forward * speed
-        } else if event.key.keysym.sym == SDLK_RIGHT {
-          camera.position += camera.right * speed
-        } else if event.key.keysym.sym == SDLK_LEFT {
-          camera.position -= camera.right * speed
-        } else if event.key.keysym.sym == SDLK_ESCAPE {
-          SDL_SetRelativeMouseMode(SDL_FALSE)
-        }
-
-      } else if event.type == SDL_MOUSEMOTION.rawValue {
-        camera.yaw += Float(event.motion.xrel)
-        camera.pitch -= Float(event.motion.yrel)
-        camera.pitch = min(89, max(-89, camera.pitch))
-      } else if event.type == SDL_MOUSEBUTTONDOWN.rawValue {
-        SDL_SetRelativeMouseMode(SDL_TRUE)
-      }
+  func recreateSwapchain() throws {
+    if window.size.width == 0 || window.size.height == 0 {
+      return
+    }
+    /*var windowWidth: Int32 = 0
+    var windowHeight: Int32 = 0
+    SDL_GetWindowSize(window, &windowWidth, &windowHeight)
+    var event = SDL_Event()
+    while windowWidth == 0 || windowHeight == 0 {
+      SDL_WaitEvent(&event)
+      SDL_GetWindowSize(window, &windowWidth, &windowHeight)
     }*/
-    
-    //try drawFrame()
-  }*/
+
+    device.waitIdle()
+
+    try createSwapchain()
+    try createImageViews()
+    try createRenderPass()
+    try createGraphicsPipeline()
+    try createDepthResources()
+    try createFramebuffers()
+    try createUniformBuffers()
+    try createDescriptorPool()
+    try createDescriptorSets()
+  }
+
+  func cleanupSwapchain() {
+    depthImageView.destroy()
+    depthImage.destroy()
+    depthImageMemory.destroy()
+    framebuffers.forEach { $0.destroy() }
+    graphicsPipeline.destroy()
+    renderPass.destroy()
+    imageViews.forEach { $0.destroy() }
+    swapchain.destroy()
+
+    for i in 0..<uniformBuffers.count {
+      uniformBuffers[i].destroy()
+      uniformBuffersMemory[i].free()
+    }
+
+    descriptorPool.destroy()
+  }
 
   func destroy() {
     //vertexBuffer.destroy()

@@ -57,7 +57,6 @@ func createNewCube() {
 }
 
 createNewCube()
-try renderer.updateRenderData(gameObjects: gameObjects)
 
 var lastLoopTime = Date.timeIntervalSinceReferenceDate
 var lastNewCubeTime = Date.timeIntervalSinceReferenceDate
@@ -66,7 +65,6 @@ func mainLoop() throws {
   let startTime = Date.timeIntervalSinceReferenceDate
   if startTime - lastNewCubeTime > 1 {
     createNewCube()
-    try renderer.updateRenderData(gameObjects: gameObjects)
     print("ADD NEW")
     lastNewCubeTime = startTime
   }
@@ -74,7 +72,7 @@ func mainLoop() throws {
 
   try backend.processEvents()
 
-  try renderer.drawFrame()
+  try renderer.drawFrame(gameObjects: gameObjects)
 
   DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
     try! mainLoop()
