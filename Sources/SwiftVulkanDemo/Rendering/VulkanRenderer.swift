@@ -32,12 +32,6 @@ public class VulkanRenderer {
   @Deferred var depthImage: Image
   @Deferred var depthImageMemory: DeviceMemory
   @Deferred var depthImageView: ImageView
-  @Deferred var textureImage: Image
-  @Deferred var textureImageMemory: DeviceMemory
-  @Deferred var textureImageView: ImageView
-  @Deferred var textureSampler: Sampler
-  @Deferred var gui: GUI
-  @Deferred var guiSurface: SwiftGUI.CpuBufferDrawingSurface
   var currentVertexBufferSize: DeviceSize = 0
   @Deferred var vertexBuffer: Buffer
   @Deferred var vertexBufferMemory: DeviceMemory
@@ -114,16 +108,6 @@ public class VulkanRenderer {
     try self.createDepthResources()
 
     try self.createFramebuffers()
-
-    try self.createGUI()
-
-    try self.createGUISurface()
-
-    try self.createTextureImage()
-
-    try self.createTextureImageView()
-
-    try self.createTextureSampler()
 
     try self.createVertexBuffer(size: 48 * 1)
 
@@ -703,16 +687,7 @@ public class VulkanRenderer {
     depthImageView = try createImageView(image: depthImage, format: depthFormat, aspectFlags: .depth)
   }
 
-  func createGUI() throws {
-    gui = GUI()
-  }
-
-  func createGUISurface() throws {
-    guiSurface = SwiftGUI.CpuBufferDrawingSurface(size: ISize2(Int(swapchainExtent.width), Int(swapchainExtent.height)))
-    gui.surface = guiSurface
-  }
-
-  func createTextureImage() throws {
+  /*func createTextureImage() throws {
     //let image = try CpuImage(contentsOf: Bundle.module.url(forResource: "viking_room", withExtension: "png")!)
     let imageWidth = guiSurface.size.width
     let imageHeight = guiSurface.size.height
@@ -720,7 +695,6 @@ public class VulkanRenderer {
     //let imageDataSize = imageWidth * imageHeight * channelCount
     let dataSize = Int(guiSurface.size.width * guiSurface.size.height * 4)
 
-    gui.update()
     //let skiaDrawnDataPointer = testDraw(Int32(imageWidth), Int32(imageHeight))
     //let image = CpuImage(width: 200, height: 200, rgba: Array(repeating: 255, count: imageDataSize))
 
@@ -769,7 +743,7 @@ public class VulkanRenderer {
       borderColor: .intOpaqueBlack,
       unnormalizedCoordinates: false
     ))
-  }
+  }*/
 
   func createVertexBuffer(size: DeviceSize) throws {
     (vertexBuffer, vertexBufferMemory) = try createBuffer(
@@ -1066,9 +1040,7 @@ public class VulkanRenderer {
     descriptorPool.destroy()
   }
 
-  func drawFrame() throws {
-    gui.update()
-
+  func drawFrame(gameObjects: [GameObject]) throws {
     let imageAvailableSemaphore = imageAvailableSemaphores[currentFrameIndex]
     let renderFinishedSemaphore = renderFinishedSemaphores[currentFrameIndex]
     let inFlightFence = inFlightFences[currentFrameIndex]
