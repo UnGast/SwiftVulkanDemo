@@ -413,12 +413,12 @@ public class VulkanRenderer {
     )
 
     let colorBlendAttachment = PipelineColorBlendAttachmentState(
-      blendEnable: false,
-      srcColorBlendFactor: .one,
-      dstColorBlendFactor: .zero,
+      blendEnable: true,
+      srcColorBlendFactor: .srcAlpha,
+      dstColorBlendFactor: .oneMinusSrcAlpha,
       colorBlendOp: .add,
-      srcAlphaBlendFactor: .one,
-      dstAlphaBlendFactor: .zero,
+      srcAlphaBlendFactor: .srcAlpha,
+      dstAlphaBlendFactor: .oneMinusSrcAlpha,
       alphaBlendOp: .add,
       colorWriteMask: [.r, .g, .b, .a]
     )

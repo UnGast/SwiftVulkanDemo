@@ -12,7 +12,7 @@ public struct Vertex {
       Float(color.r) / 255,
       Float(color.g) / 255,
       Float(color.b) / 255,
-      Float(color.a) / 255
+      0//Float(color.a) / 255
     ] + texCoord.elements
   }
 
@@ -36,7 +36,7 @@ public struct Vertex {
         location: 1,
         binding: 0,
         format: .R32G32B32A32_SFLOAT,
-        offset: UInt32(MemoryLayout<Float>.size * 4)
+        offset: UInt32(MemoryLayout<Float>.size * 3)
       ),
       VertexInputAttributeDescription(
         location: 2,
