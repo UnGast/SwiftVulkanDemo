@@ -53,10 +53,10 @@ let gui = GUI(surface: CpuBufferDrawingSurface(size: ISize2(800, 800)))
 gui.update()
 
 let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
-  Vertex(position: FVec3(-1, 1, 0.1), color: .white, texCoord: FVec2(0, 1)),
-  Vertex(position: FVec3(1, 1, 0.1), color: .white, texCoord: FVec2(1, 1)),
-  Vertex(position: FVec3(1, -1, 0.1), color: .white, texCoord: FVec2(1, 0)),
-  Vertex(position: FVec3(-1, -1, 0.1), color: .white, texCoord: FVec2(0, 0)),
+  Vertex(position: FVec3(-1, 1, 0.1), color: .transparent, texCoord: FVec2(0, 1)),
+  Vertex(position: FVec3(1, 1, 0.1), color: .transparent, texCoord: FVec2(1, 1)),
+  Vertex(position: FVec3(1, -1, 0.1), color: .transparent, texCoord: FVec2(1, 0)),
+  Vertex(position: FVec3(-1, -1, 0.1), color: .transparent, texCoord: FVec2(0, 0)),
 ], indices: [
   0, 1, 2,
   0, 2, 3

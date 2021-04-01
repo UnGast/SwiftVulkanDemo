@@ -11,14 +11,15 @@ public struct Vertex {
     position.elements + [
       Float(color.r) / 255,
       Float(color.g) / 255,
-      Float(color.b) / 255
+      Float(color.b) / 255,
+      Float(color.a) / 255
     ] + texCoord.elements
   }
 
   public static var inputBindingDescription: VertexInputBindingDescription {
     VertexInputBindingDescription(
       binding: 0,
-      stride: UInt32(MemoryLayout<Float>.size * 8),
+      stride: UInt32(MemoryLayout<Float>.size * 9),
       inputRate: .vertex
     )
   }
@@ -34,14 +35,14 @@ public struct Vertex {
       VertexInputAttributeDescription(
         location: 1,
         binding: 0,
-        format: .R32G32B32_SFLOAT,
-        offset: UInt32(MemoryLayout<Float>.size * 3)
+        format: .R32G32B32A32_SFLOAT,
+        offset: UInt32(MemoryLayout<Float>.size * 4)
       ),
       VertexInputAttributeDescription(
         location: 2,
         binding: 0,
         format: .R32G32_SFLOAT,
-        offset: UInt32(MemoryLayout<Float>.size * 6)
+        offset: UInt32(MemoryLayout<Float>.size * 7)
       )
     ]
   }
