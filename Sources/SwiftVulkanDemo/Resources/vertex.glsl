@@ -21,6 +21,7 @@ layout(binding = 0) uniform UniformBufferObject {
 
 layout (push_constant) uniform pushConstants {
     mat4 modelTransformation;
+    float projectionEnabled;
 };
 
 layout(location=0) in vec3 inPosition;
@@ -31,8 +32,12 @@ layout(location=0) out vec3 fragColor;
 layout(location=1) out vec2 fragTexCoord;
 
 void main() {
-  vec4 tmp_position = ubo.proj * ubo.view * modelTransformation * vec4(inPosition.xy /* + vec2(ubo.proj[2][3], 0)*/, inPosition.z, 1.);
-  gl_Position = tmp_position;
-  fragColor = inColor + modelTransformation[3];
-  fragTexCoord = inTexCoord;
+    mat4 cumulatedTransformation = modelTransformation;
+    if (projectionEnabled > 0) {
+        cumulatedTransformation = ubo.proj * ubo.view * cumulatedTransformation;
+    }
+    vec4 tmp_position = cumulatedTransformation * vec4(inPosition, 1.);
+    gl_Position = tmp_position;
+    fragColor = inColor;
+    fragTexCoord = inTexCoord;
 }

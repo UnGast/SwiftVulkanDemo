@@ -9,6 +9,7 @@ public class SceneDrawData {
 public struct MeshDrawInfo {
   public var mesh: Mesh
   public var transformation: FMat4
+  public var projectionEnabled: Bool
   public var indicesStartIndex: UInt32
   public var indicesCount: UInt32
 }

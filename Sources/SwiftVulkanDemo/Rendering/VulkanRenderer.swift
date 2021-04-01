@@ -439,10 +439,9 @@ public class VulkanRenderer {
     let pushConstantRange = PushConstantRange(
       stageFlags: .vertex,
       offset: 0,
-      size: UInt32(MemoryLayout<Float>.size * 16)
+      size: UInt32(MemoryLayout<Float>.size * 17)
     )
 
-    print("SET LAYOUTS", descriptorSetLayout.pointer, materialSystem.descriptorSetLayout.pointer)
     let pipelineLayoutInfo = PipelineLayoutCreateInfo(
       flags: .none,
       setLayouts: [descriptorSetLayout, materialSystem.descriptorSetLayout],
@@ -988,6 +987,7 @@ public class VulkanRenderer {
         sceneDrawData.meshDrawInfos.append(MeshDrawInfo(
           mesh: meshGameObject.mesh,
           transformation: meshGameObject.transformation,
+          projectionEnabled: meshGameObject.projectionEnabled,
           indicesStartIndex: UInt32(sceneDrawData.indices.count),
           indicesCount: UInt32(newIndices.count)
         ))
@@ -1040,7 +1040,9 @@ public class VulkanRenderer {
       dynamicOffsets: [])
 
     for meshDrawInfo in sceneDrawData.meshDrawInfos {
-      commandBuffer.pushConstants(layout: pipelineLayout, stageFlags: .vertex, offset: 0, size: UInt32(MemoryLayout<Float>.size * 16), values: meshDrawInfo.transformation.transposed.elements);
+      var pushConstants = meshDrawInfo.transformation.transposed.elements
+      pushConstants.append(meshDrawInfo.projectionEnabled ? 1 : 0)
+      commandBuffer.pushConstants(layout: pipelineLayout, stageFlags: .vertex, offset: 0, size: UInt32(MemoryLayout<Float>.size * pushConstants.count), values: pushConstants)
       commandBuffer.drawIndexed(indexCount: meshDrawInfo.indicesCount, instanceCount: 1, firstIndex: meshDrawInfo.indicesStartIndex, vertexOffset: 0, firstInstance: 0)
     }
 

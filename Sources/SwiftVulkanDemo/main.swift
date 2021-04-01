@@ -22,15 +22,6 @@ let windowSizeSubscription = window.sizeChanged.sink { _ in
 
 var gameObjects = [GameObject]()
 
-let guiPlane = MeshGameObject(mesh: Mesh.plane(size: FVec2(1, 1)))
-guiPlane.transformation = Matrix4([
-  1, 0, 0, 10,
-  0, 1, 0, 0,
-  0, 0, 1, 0, 
-  0, 0, 0, 1
-]).matmul(Matrix4(topLeft: Quaternion(angle: 90, axis: FVec3(1, 0, 0)).mat3).transposed)
-gameObjects.append(guiPlane)
-
 let vikingRoom = MeshGameObject(mesh: try! Mesh.loadObj(fileUrl: Bundle.module.url(forResource: "viking_room", withExtension: "obj")!))
 vikingRoom.transformation = FMat4([
   1, 0, 0, 10,
@@ -58,6 +49,24 @@ func createNewCube() {
 
 createNewCube()
 
+let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
+  Vertex(position: FVec3(-1, 1, 0.1), color: .white, texCoord: FVec2(0, 1)),
+  Vertex(position: FVec3(1, 1, 0.1), color: .white, texCoord: FVec2(1, 1)),
+  Vertex(position: FVec3(1, -1, 0.1), color: .white, texCoord: FVec2(1, 0)),
+  Vertex(position: FVec3(-1, -1, 0.1), color: .white, texCoord: FVec2(0, 0)),
+], indices: [
+  0, 1, 2,
+  0, 2, 3
+]))
+guiPlane.projectionEnabled = false
+/*guiPlane.transformation = Matrix4([
+  1, 0, 0, 10,
+  0, 1, 0, 0,
+  0, 0, 1, 0, 
+  0, 0, 0, 1
+]).matmul(Matrix4(topLeft: Quaternion(angle: 90, axis: FVec3(1, 0, 0)).mat3).transposed)*/
+gameObjects.append(guiPlane)
+
 var lastLoopTime = Date.timeIntervalSinceReferenceDate
 var lastNewCubeTime = Date.timeIntervalSinceReferenceDate
 
@@ -72,7 +81,7 @@ func mainLoop() throws {
   lastLoopTime = startTime
 
   try backend.processEvents()
-
+  
   try renderer.drawFrame(gameObjects: gameObjects)
 
   DispatchQueue.main.async {
