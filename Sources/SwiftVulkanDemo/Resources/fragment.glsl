@@ -11,7 +11,7 @@ layout(location=0) out vec4 outColor;
 void main() {
   vec4 tmpOutColor = texture(texSampler, fragTexCoord) + fragColor * 0.2;
   if (tmpOutColor[3] == 0) {
-    //discard;
+    discard;
   }
   outColor = tmpOutColor;
 }

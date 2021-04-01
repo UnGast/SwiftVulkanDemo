@@ -47,6 +47,7 @@ func createNewCube() {
     0, 0, 0, 1
   ])
   gameObjects.append(gameObject)
+  print("ADDED CUBE")
 
   nextCubeIndex += 1
 }
@@ -79,6 +80,10 @@ gameObjects.append(guiPlane)
 
 var lastLoopTime = Date.timeIntervalSinceReferenceDate
 var lastNewCubeTime = Date.timeIntervalSinceReferenceDate
+
+createNewCube()
+createNewCube()
+createNewCube()
 
 func mainLoop() throws {
   let startTime = Date.timeIntervalSinceReferenceDate
