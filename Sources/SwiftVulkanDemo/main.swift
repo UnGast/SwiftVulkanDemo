@@ -16,8 +16,12 @@ let windowInputEventSubscription = window.inputEventPublisher.sink(receiveValue:
 
 let renderer = try VulkanRenderer(window: window)
 
-let windowSizeSubscription = window.sizeChanged.sink { _ in
+let gui = GUI(surface: CpuBufferDrawingSurface(size: ISize2(800, 800)))
+gui.update()
+
+let windowSizeSubscription = window.sizeChanged.sink {
   try! renderer.recreateSwapchain()
+  gui.surface = CpuBufferDrawingSurface(size: $0)
 }
 
 var gameObjects = [GameObject]()
@@ -49,9 +53,6 @@ func createNewCube() {
 
 createNewCube()
 
-let gui = GUI(surface: CpuBufferDrawingSurface(size: ISize2(800, 800)))
-gui.update()
-
 let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
   Vertex(position: FVec3(-1, 1, 0.1), color: .transparent, texCoord: FVec2(0, 1)),
   Vertex(position: FVec3(1, 1, 0.1), color: .transparent, texCoord: FVec2(1, 1)),
@@ -63,11 +64,11 @@ let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
 ]))
 guiPlane.projectionEnabled = false
 
-let pixelData = gui.surface.buffer.withMemoryRebound(to: UInt8.self, capacity: 1) {
+/*let pixelData = gui.surface.buffer.withMemoryRebound(to: UInt8.self, capacity: 1) {
   UnsafeBufferPointer(start: $0, count: gui.surface.size.width * gui.surface.size.height * 4)
 }
-let guiMaterial = Material(texture: Image(width: gui.surface.size.width, height: gui.surface.size.height, rgba: Array(pixelData)))
-guiPlane.mesh.material = guiMaterial
+var guiMaterial = Material(texture: Image(width: gui.surface.size.width, height: gui.surface.size.height, rgba: Array(pixelData)))
+guiPlane.mesh.material = guiMaterial*/
 /*guiPlane.transformation = Matrix4([
   1, 0, 0, 10,
   0, 1, 0, 0,
@@ -90,6 +91,15 @@ func mainLoop() throws {
   lastLoopTime = startTime
 
   try backend.processEvents()
+
+  if let oldMaterial = guiPlane.mesh.material {
+    try renderer.materialSystem.removeMaterial(material: oldMaterial)
+  }
+  gui.update()
+  let pixelData = gui.surface.buffer.withMemoryRebound(to: UInt8.self, capacity: 1) {
+    UnsafeBufferPointer(start: $0, count: gui.surface.size.width * gui.surface.size.height * 4)
+  }
+  guiPlane.mesh.material = Material(texture: Image(width: gui.surface.size.width, height: gui.surface.size.height, rgba: Array(pixelData)))
   
   try renderer.drawFrame(gameObjects: gameObjects)
 
