@@ -128,9 +128,13 @@ func handleApplicationEvent(_ event: ApplicationEvent) {
 func handleWindowInputEvent(_ event: WindowInputEvent) {
   switch event {
     case let event as WindowMouseMoveEvent:
-      renderer.camera.yaw += Float(event.positionDelta.x)
-      renderer.camera.pitch -= Float(event.positionDelta.y)
-      renderer.camera.pitch = min(89, max(-89, renderer.camera.pitch))
+      if backend.relativeMouseModeEnabled {
+        renderer.camera.yaw += Float(event.positionDelta.x)
+        renderer.camera.pitch -= Float(event.positionDelta.y)
+        renderer.camera.pitch = min(89, max(-89, renderer.camera.pitch))
+      }
+
+      gui.root.consume(RawMouseMoveEvent(position: DPoint2(event.position), previousPosition: DPoint2(event.position - event.positionDelta)))
     case let event as WindowMouseButtonDownEvent:
       backend.relativeMouseModeEnabled = true
     case let event as WindowKeyDownEvent:

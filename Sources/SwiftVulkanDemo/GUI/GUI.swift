@@ -7,38 +7,13 @@ class GUI {
       updateDrawingContext()
     }
   }
-  @Deferred private var root: Root
+  @Deferred public var root: Root
   @Deferred private var drawingContext: DrawingContext
-
-  private var data = Array(repeating: "Hello World!", count: 10)
 
   public init(surface: CpuBufferDrawingSurface) {
     self.surface = surface
 
-    root = Root(rootWidget: Container().with(styleProperties: {
-      (\.$foreground, .white)
-    }).withContent {
-      Container().with(styleProperties: {
-        (\.$width, 400)
-        (\.$height, 400)
-        (\.$background, .yellow)
-      })
-
-      Button().with(styleProperties: {
-        (\.$background, .red)
-        (\.$padding, Insets(all: 16))
-      }).withContent {
-        Text("Hello World!").with(styleProperties: {
-          (\.$foreground, .white)
-        })
-      }
-
-      List(items: ImmutableBinding(get: { [unowned self] in data })).withContent {
-        List<String>.itemSlot {
-          Text($0)
-        }
-      }
-    })
+    root = Root(rootWidget: MainView())
 
     self.updateDrawingContext()
 
