@@ -2,17 +2,19 @@ import SwiftGUI
 import SwiftGUIBackendSkia
 
 class GUI {
-  var surface: CpuBufferDrawingSurface? {
+  var surface: CpuBufferDrawingSurface {
     didSet {
       updateDrawingContext()
     }
   }
   @Deferred private var root: Root
-  private var drawingContext: DrawingContext?
+  @Deferred private var drawingContext: DrawingContext
 
   private var data = Array(repeating: "Hello World!", count: 10)
 
-  public init() {
+  public init(surface: CpuBufferDrawingSurface) {
+    self.surface = surface
+
     root = Root(rootWidget: Container().with(styleProperties: {
       (\.$foreground, .white)
     }).withContent {
@@ -37,8 +39,11 @@ class GUI {
         }
       }
     })
+
+    self.updateDrawingContext()
+
     root.setup(
-      measureText: { [unowned self] in drawingContext?.measureText(text: $0, paint: $1) ?? .zero },
+      measureText: { [unowned self] in drawingContext.measureText(text: $0, paint: $1) ?? .zero },
       getKeyStates: { KeyStatesContainer() },
       getApplicationTime: { 0 },
       getRealFps: { 0 },
@@ -46,19 +51,13 @@ class GUI {
   }
 
   private func updateDrawingContext() {
-    if let surface = surface {
-      let backend = SkiaCpuDrawingBackend(surface: surface)
-      drawingContext = DrawingContext(backend: backend)
-      root.bounds.size = DSize2(surface.size)
-    } else {
-      drawingContext = nil
-    }
+    let backend = SkiaCpuDrawingBackend(surface: surface)
+    drawingContext = DrawingContext(backend: backend)
+    root.bounds.size = DSize2(surface.size)
   }
 
   func update() {
     root.tick(Tick(deltaTime: 0, totalTime: 0))
-    if let drawingContext = drawingContext {
-      root.draw(drawingContext)
-    }
+    root.draw(drawingContext)
   }
 }

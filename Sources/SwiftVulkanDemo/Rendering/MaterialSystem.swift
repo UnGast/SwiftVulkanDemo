@@ -9,11 +9,18 @@ public class MaterialSystem {
   @Deferred private var descriptorPool: DescriptorPool
   @Deferred private var textureSampler: Sampler 
   public private(set) var materialRenderData: [ObjectIdentifier: MaterialRenderData] = [:]
+  var currentFrameCompleteDestructorQueue: [() -> ()] = []
 
   public init(vulkanRenderer: VulkanRenderer) throws {
     self.vulkanRenderer = vulkanRenderer
     self.setsPerMaterial = vulkanRenderer.swapchainImages.count 
 
+    try createDescriptorSetLayout()
+    try createDescriptorPool()
+    try createTextureSampler()
+  }
+
+  func createDescriptorSetLayout() throws {
     let samplerLayoutBinding = DescriptorSetLayoutBinding(
       binding: 0,
       descriptorType: .combinedImageSampler,
@@ -25,7 +32,9 @@ public class MaterialSystem {
     descriptorSetLayout = try DescriptorSetLayout.create(device: vulkanRenderer.device, createInfo: DescriptorSetLayoutCreateInfo(
       flags: .none, bindings: [samplerLayoutBinding]
     ))
+  }
 
+  func createDescriptorPool() throws {
     descriptorPool = try DescriptorPool.create(device: vulkanRenderer.device, createInfo: DescriptorPoolCreateInfo(
       flags: .none,
       maxSets: 10,
@@ -35,8 +44,6 @@ public class MaterialSystem {
         )
       ]
     ))
-
-    try createTextureSampler()
   }
 
   func createTextureSampler() throws {
@@ -94,11 +101,22 @@ public class MaterialSystem {
   }
 
   public func buildForMaterial(_ material: Material) throws {
-    let descriptorSets = DescriptorSet.allocate(device: vulkanRenderer.device, allocateInfo: DescriptorSetAllocateInfo(
-      descriptorPool: descriptorPool,
-      descriptorSetCount: UInt32(setsPerMaterial),
-      setLayouts: Array(repeating: descriptorSetLayout, count: setsPerMaterial)))
-    
+    let descriptorSets: [DescriptorSet]
+
+    if let materialRenderData = self.materialRenderData[ObjectIdentifier(material)] {
+      descriptorSets = materialRenderData.descriptorSets
+      currentFrameCompleteDestructorQueue.append {
+        materialRenderData.textureImageView.destroy()
+        materialRenderData.textureImageMemory.free()
+        materialRenderData.textureImage.destroy()
+      }
+    } else {
+      descriptorSets = DescriptorSet.allocate(device: vulkanRenderer.device, allocateInfo: DescriptorSetAllocateInfo(
+        descriptorPool: descriptorPool,
+        descriptorSetCount: UInt32(setsPerMaterial),
+        setLayouts: Array(repeating: descriptorSetLayout, count: setsPerMaterial)))
+    }
+
     let (textureImage, textureImageMemory) = try createTextureImage(imageData: material.texture)
     let textureImageView = try createTextureImageView(image: textureImage)
 

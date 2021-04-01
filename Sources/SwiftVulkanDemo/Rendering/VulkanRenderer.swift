@@ -914,6 +914,11 @@ public class VulkanRenderer {
 
     inFlightFence.wait(timeout: .max)
 
+    for destroy in materialSystem.currentFrameCompleteDestructorQueue {
+      destroy()
+    }
+    materialSystem.currentFrameCompleteDestructorQueue = []
+
     let (imageIndex, acquireImageResult) = try swapchain.acquireNextImage(timeout: .max, semaphore: imageAvailableSemaphore, fence: nil)
     if let usedCommandBuffer = usedCommandBuffers[Int(imageIndex)] {
       CommandBuffer.free(commandBuffers: [usedCommandBuffer], device: device, commandPool: commandPool)
@@ -983,9 +988,16 @@ public class VulkanRenderer {
         let newIndices = meshGameObject.mesh.indices.map {
           $0 + UInt32(sceneDrawData.vertices.count)
         }
+
+        var materialRenderData = materialSystem.materialRenderData[ObjectIdentifier(mainMaterial)]!
+        if let material = meshGameObject.mesh.material {
+          try materialSystem.buildForMaterial(material)
+          materialRenderData = materialSystem.materialRenderData[ObjectIdentifier(material)]!
+        }
         
         sceneDrawData.meshDrawInfos.append(MeshDrawInfo(
           mesh: meshGameObject.mesh,
+          materialRenderData: materialRenderData,
           transformation: meshGameObject.transformation,
           projectionEnabled: meshGameObject.projectionEnabled,
           indicesStartIndex: UInt32(sceneDrawData.indices.count),
@@ -1032,17 +1044,18 @@ public class VulkanRenderer {
     commandBuffer.bindVertexBuffers(firstBinding: 0, buffers: [vertexBuffer], offsets: [0])
     commandBuffer.bindIndexBuffer(buffer: indexBuffer, offset: 0, indexType: VK_INDEX_TYPE_UINT32)
 
-    commandBuffer.bindDescriptorSets(
-      pipelineBindPoint: .graphics,
-      layout: pipelineLayout,
-      firstSet: 0,
-      descriptorSets: [descriptorSets[framebufferIndex], materialSystem.materialRenderData[ObjectIdentifier(mainMaterial)]!.descriptorSets[framebufferIndex]],
-      dynamicOffsets: [])
-
     for meshDrawInfo in sceneDrawData.meshDrawInfos {
       var pushConstants = meshDrawInfo.transformation.transposed.elements
       pushConstants.append(meshDrawInfo.projectionEnabled ? 1 : 0)
       commandBuffer.pushConstants(layout: pipelineLayout, stageFlags: .vertex, offset: 0, size: UInt32(MemoryLayout<Float>.size * pushConstants.count), values: pushConstants)
+
+      commandBuffer.bindDescriptorSets(
+        pipelineBindPoint: .graphics,
+        layout: pipelineLayout,
+        firstSet: 0,
+        descriptorSets: [descriptorSets[framebufferIndex], meshDrawInfo.materialRenderData.descriptorSets[framebufferIndex]],
+        dynamicOffsets: [])
+
       commandBuffer.drawIndexed(indexCount: meshDrawInfo.indicesCount, instanceCount: 1, firstIndex: meshDrawInfo.indicesStartIndex, vertexOffset: 0, firstInstance: 0)
     }
 

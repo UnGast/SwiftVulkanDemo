@@ -49,6 +49,9 @@ func createNewCube() {
 
 createNewCube()
 
+let gui = GUI(surface: CpuBufferDrawingSurface(size: ISize2(800, 800)))
+gui.update()
+
 let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
   Vertex(position: FVec3(-1, 1, 0.1), color: .white, texCoord: FVec2(0, 1)),
   Vertex(position: FVec3(1, 1, 0.1), color: .white, texCoord: FVec2(1, 1)),
@@ -59,6 +62,12 @@ let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
   0, 2, 3
 ]))
 guiPlane.projectionEnabled = false
+
+let pixelData = gui.surface.buffer.withMemoryRebound(to: UInt8.self, capacity: 1) {
+  UnsafeBufferPointer(start: $0, count: gui.surface.size.width * gui.surface.size.height * 4)
+}
+let guiMaterial = Material(texture: Image(width: gui.surface.size.width, height: gui.surface.size.height, rgba: Array(pixelData)))
+guiPlane.mesh.material = guiMaterial
 /*guiPlane.transformation = Matrix4([
   1, 0, 0, 10,
   0, 1, 0, 0,
