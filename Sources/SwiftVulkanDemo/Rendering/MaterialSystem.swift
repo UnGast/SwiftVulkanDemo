@@ -37,8 +37,8 @@ public class MaterialSystem {
 
   func createDescriptorPool() throws {
     descriptorPool = try DescriptorPool.create(device: vulkanRenderer.device, createInfo: DescriptorPoolCreateInfo(
-      flags: .none,
-      maxSets: 190,
+      flags: [],
+      maxSets: 10,
       poolSizes: [
         DescriptorPoolSize(
           type: .combinedImageSampler, descriptorCount: 30
@@ -94,6 +94,9 @@ public class MaterialSystem {
 
     try vulkanRenderer.transitionImageLayout(image: textureImage, format: .R8G8B8A8_SRGB /* note */, oldLayout: .transferDstOptimal, newLayout: .shaderReadOnlyOptimal)
 
+    stagingBuffer.destroy()
+    stagingBufferMemory.free()
+
     return (textureImage, textureImageMemory)
   }
 
@@ -102,23 +105,20 @@ public class MaterialSystem {
   }
 
   public func buildForMaterial(_ material: Material) throws {
-    var descriptorSets: [DescriptorSet]
+    var descriptorSets: [DescriptorSet] = []
 
-    if let materialRenderData = self.materialRenderData[ObjectIdentifier(material)] {
-      descriptorSets = materialRenderData.descriptorSets
-    } else {
-      let reusedDescriptorSetsCount = min(setsPerMaterial, unusedDescriptorSets.count)
-      descriptorSets = Array(unusedDescriptorSets[0..<reusedDescriptorSetsCount])
-      unusedDescriptorSets.removeFirst(reusedDescriptorSetsCount)
-      
-      let missingDescriptorSetsCount = setsPerMaterial - reusedDescriptorSetsCount
-      if missingDescriptorSetsCount > 0 {
-        let newAllocatedDescriptorSets = DescriptorSet.allocate(device: vulkanRenderer.device, allocateInfo: DescriptorSetAllocateInfo(
-          descriptorPool: descriptorPool,
-          descriptorSetCount: UInt32(missingDescriptorSetsCount),
-          setLayouts: Array(repeating: descriptorSetLayout, count: setsPerMaterial)))
-        descriptorSets.append(contentsOf: newAllocatedDescriptorSets)
-      }
+    let reusedDescriptorSetsCount = min(setsPerMaterial, unusedDescriptorSets.count)
+    descriptorSets = Array(unusedDescriptorSets[0..<reusedDescriptorSetsCount])
+    unusedDescriptorSets.removeFirst(reusedDescriptorSetsCount)
+    
+    let missingDescriptorSetsCount = setsPerMaterial - reusedDescriptorSetsCount
+
+    if missingDescriptorSetsCount > 0 {
+      let newAllocatedDescriptorSets = DescriptorSet.allocate(device: vulkanRenderer.device, allocateInfo: DescriptorSetAllocateInfo(
+        descriptorPool: descriptorPool,
+        descriptorSetCount: UInt32(missingDescriptorSetsCount),
+        setLayouts: Array(repeating: descriptorSetLayout, count: setsPerMaterial)))
+      descriptorSets.append(contentsOf: newAllocatedDescriptorSets)
     }
 
     let (textureImage, textureImageMemory) = try createTextureImage(imageData: material.texture)
@@ -153,8 +153,8 @@ public class MaterialSystem {
 
   public func removeMaterial(material: Material) throws {
     if let renderData = materialRenderData[ObjectIdentifier(material)] {
-      unusedDescriptorSets.append(contentsOf: renderData.descriptorSets)
-      currentFrameCompleteDestructorQueue.append { [renderData] in
+      currentFrameCompleteDestructorQueue.append { [unowned self, renderData] in
+        unusedDescriptorSets.append(contentsOf: renderData.descriptorSets)
         renderData.textureImageView.destroy()
         renderData.textureImageMemory.free()
         renderData.textureImage.destroy()

@@ -1046,7 +1046,6 @@ public class VulkanRenderer {
 
     for meshDrawInfo in sceneDrawData.meshDrawInfos {
       var pushConstants = meshDrawInfo.transformation.transposed.elements
-      print("PUSH CONSTANTS", pushConstants)
       pushConstants.append(meshDrawInfo.projectionEnabled ? 1 : 0)
       commandBuffer.pushConstants(layout: pipelineLayout, stageFlags: .vertex, offset: 0, size: UInt32(MemoryLayout<Float>.size * pushConstants.count), values: pushConstants)
 
