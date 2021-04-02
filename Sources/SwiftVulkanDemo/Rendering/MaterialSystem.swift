@@ -121,26 +121,31 @@ public class MaterialSystem {
       descriptorSets.append(contentsOf: newAllocatedDescriptorSets)
     }
 
-    let (textureImage, textureImageMemory) = try createTextureImage(imageData: material.texture)
-    let textureImageView = try createTextureImageView(image: textureImage)
+    let (textureImage, textureImageMemory) = try measureDuration("textureImage and textureImageMemory") {
+      try createTextureImage(imageData: material.texture)
+    }
+    let textureImageView = try measureDuration("textureImageView") {
+      try createTextureImageView(image: textureImage)
+    }
 
-    for i in 0..<self.setsPerMaterial {
-      let imageInfo = DescriptorImageInfo(
-        sampler: textureSampler, imageView: textureImageView, imageLayout: .shaderReadOnlyOptimal 
-      )
+    measureDuration("descriptorWrites") {
+      var descriptorWrites = [WriteDescriptorSet]()    
+      for i in 0..<self.setsPerMaterial {
+        let imageInfo = DescriptorImageInfo(
+          sampler: textureSampler, imageView: textureImageView, imageLayout: .shaderReadOnlyOptimal 
+        )
 
-      let descriptorWrites = [
-        WriteDescriptorSet(
-          dstSet: descriptorSets[i],
-          dstBinding: 0,
-          dstArrayElement: 0,
-          descriptorCount: 1,
-          descriptorType: .combinedImageSampler,
-          imageInfo: [imageInfo],
-          bufferInfo: [],
-          texelBufferView: [])
-      ]
-
+        descriptorWrites.append(
+          WriteDescriptorSet(
+            dstSet: descriptorSets[i],
+            dstBinding: 0,
+            dstArrayElement: 0,
+            descriptorCount: 1,
+            descriptorType: .combinedImageSampler,
+            imageInfo: [imageInfo],
+            bufferInfo: [],
+            texelBufferView: []))
+      }
       vulkanRenderer.device.updateDescriptorSets(descriptorWrites: descriptorWrites, descriptorCopies: nil)
     }
 
