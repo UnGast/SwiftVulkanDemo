@@ -1,3 +1,4 @@
+import GfxMath
 import Vulkan
 import struct Swim.Image
 import enum Swim.RGBA
@@ -7,9 +8,11 @@ public class MaterialSystem {
   private let setsPerMaterial: Int
   @Deferred var descriptorSetLayout: DescriptorSetLayout
   @Deferred private var descriptorPool: DescriptorPool
-  private var unusedDescriptorSets = [DescriptorSet]()
   @Deferred private var textureSampler: Sampler 
   public private(set) var materialRenderData: [ObjectIdentifier: MaterialRenderData] = [:]
+
+  private var unusedDescriptorSets = [DescriptorSet]()
+  private var unusedTextureInfos = [TextureInfo]()
   var currentFrameCompleteDestructorQueue: [() -> ()] = []
 
   public init(vulkanRenderer: VulkanRenderer) throws {
@@ -70,6 +73,23 @@ public class MaterialSystem {
   func createTextureImage(imageData: Swim.Image<RGBA, UInt8>) throws -> (Vulkan.Image, Vulkan.DeviceMemory) {
     let imageWidth = Int32(imageData.width)
     let imageHeight = Int32(imageData.height)
+
+    let (textureImage, textureImageMemory) = try vulkanRenderer.createImage(
+      width: UInt32(imageWidth),
+      height: UInt32(imageHeight),
+      format: .R8G8B8A8_SRGB /* note */,
+      tiling: .optimal,
+      usage: [.transferDst, .sampled],
+      properties: [.hostVisible, .hostCoherent])
+
+    try transferImageDataToImage(imageData: imageData, image: textureImage)
+  
+    return (textureImage, textureImageMemory)
+  }
+
+  func transferImageDataToImage(imageData: Swim.Image<RGBA, UInt8>, image: Vulkan.Image) throws {
+    let imageWidth = Int32(imageData.width)
+    let imageHeight = Int32(imageData.height)
     let dataSize = imageData.pixelCount * 4
 
     let (stagingBuffer, stagingBufferMemory) = try vulkanRenderer.createBuffer(
@@ -80,24 +100,14 @@ public class MaterialSystem {
     dataPointer?.copyMemory(from: imageData.getData(), byteCount: dataSize)
     stagingBufferMemory.unmapMemory()
 
-    let (textureImage, textureImageMemory) = try vulkanRenderer.createImage(
-      width: UInt32(imageWidth),
-      height: UInt32(imageHeight),
-      format: .R8G8B8A8_SRGB /* note */,
-      tiling: .optimal,
-      usage: [.transferDst, .sampled],
-      properties: [.hostVisible, .hostCoherent])
+    try vulkanRenderer.transitionImageLayout(image: image, format: .R8G8B8A8_SRGB /* note */, oldLayout: .undefined, newLayout: .transferDstOptimal)
 
-    try vulkanRenderer.transitionImageLayout(image: textureImage, format: .R8G8B8A8_SRGB /* note */, oldLayout: .undefined, newLayout: .transferDstOptimal)
+    try vulkanRenderer.copyBufferToImage(buffer: stagingBuffer, image: image, width: UInt32(imageWidth), height: UInt32(imageHeight))
 
-    try vulkanRenderer.copyBufferToImage(buffer: stagingBuffer, image: textureImage, width: UInt32(imageWidth), height: UInt32(imageHeight))
-
-    try vulkanRenderer.transitionImageLayout(image: textureImage, format: .R8G8B8A8_SRGB /* note */, oldLayout: .transferDstOptimal, newLayout: .shaderReadOnlyOptimal)
+    try vulkanRenderer.transitionImageLayout(image: image, format: .R8G8B8A8_SRGB /* note */, oldLayout: .transferDstOptimal, newLayout: .shaderReadOnlyOptimal)
 
     stagingBuffer.destroy()
     stagingBufferMemory.free()
-
-    return (textureImage, textureImageMemory)
   }
 
   func createTextureImageView(image: Vulkan.Image) throws -> ImageView {
@@ -121,18 +131,27 @@ public class MaterialSystem {
       descriptorSets.append(contentsOf: newAllocatedDescriptorSets)
     }
 
-    let (textureImage, textureImageMemory) = try measureDuration("textureImage and textureImageMemory") {
-      try createTextureImage(imageData: material.texture)
-    }
-    let textureImageView = try measureDuration("textureImageView") {
-      try createTextureImageView(image: textureImage)
+    let textureInfo: TextureInfo
+    if let unusedTextureInfo = unusedTextureInfos.last, unusedTextureInfo.size == ISize2(material.texture.width, material.texture.height) {
+      _ = unusedTextureInfos.popLast()
+      textureInfo = unusedTextureInfo
+      try transferImageDataToImage(imageData: material.texture, image: textureInfo.textureImage)
+    } else {
+      let (textureImage, textureImageMemory) = try measureDuration("textureImage and textureImageMemory") {
+        try createTextureImage(imageData: material.texture)
+      }
+      let textureImageView = try measureDuration("textureImageView") {
+        try createTextureImageView(image: textureImage)
+      }
+      textureInfo = TextureInfo(size: ISize2(material.texture.width, material.texture.height),
+        textureImage: textureImage, textureImageMemory: textureImageMemory, textureImageView: textureImageView)
     }
 
     measureDuration("descriptorWrites") {
       var descriptorWrites = [WriteDescriptorSet]()    
       for i in 0..<self.setsPerMaterial {
         let imageInfo = DescriptorImageInfo(
-          sampler: textureSampler, imageView: textureImageView, imageLayout: .shaderReadOnlyOptimal 
+          sampler: textureSampler, imageView: textureInfo.textureImageView, imageLayout: .shaderReadOnlyOptimal 
         )
 
         descriptorWrites.append(
@@ -151,18 +170,19 @@ public class MaterialSystem {
 
     self.materialRenderData[ObjectIdentifier(material)] = MaterialRenderData(
       descriptorSets: descriptorSets,
-      textureImage: textureImage,
-      textureImageMemory: textureImageMemory,
-      textureImageView: textureImageView)
+      textureInfo: TextureInfo(
+        size: ISize2(material.texture.width, material.texture.height),
+        textureImage: textureInfo.textureImage,
+        textureImageMemory: textureInfo.textureImageMemory,
+        textureImageView: textureInfo.textureImageView))
   }
 
   public func removeMaterial(material: Material) throws {
     if let renderData = materialRenderData[ObjectIdentifier(material)] {
       currentFrameCompleteDestructorQueue.append { [unowned self, renderData] in
         unusedDescriptorSets.append(contentsOf: renderData.descriptorSets)
-        renderData.textureImageView.destroy()
-        renderData.textureImageMemory.free()
-        renderData.textureImage.destroy()
+        unusedTextureInfos.append(renderData.textureInfo)
+        materialRenderData[ObjectIdentifier(material)] = nil
       }
     }
   }
@@ -170,12 +190,22 @@ public class MaterialSystem {
 
 public class MaterialRenderData {
   public var descriptorSets: [DescriptorSet]
+  public var textureInfo: TextureInfo
+
+  public init(descriptorSets: [DescriptorSet], textureInfo: TextureInfo) {
+    self.descriptorSets = descriptorSets
+    self.textureInfo = textureInfo
+  }
+}
+
+public class TextureInfo {
+  public var size: ISize2
   public var textureImage: Vulkan.Image
   public var textureImageMemory: DeviceMemory
   public var textureImageView: ImageView
 
-  public init(descriptorSets: [DescriptorSet], textureImage: Vulkan.Image, textureImageMemory: DeviceMemory, textureImageView: ImageView) {
-    self.descriptorSets = descriptorSets
+  public init(size: ISize2, textureImage: Vulkan.Image, textureImageMemory: DeviceMemory, textureImageView: ImageView) {
+    self.size = size
     self.textureImage = textureImage
     self.textureImageMemory = textureImageMemory
     self.textureImageView = textureImageView
