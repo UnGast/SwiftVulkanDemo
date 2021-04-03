@@ -47,6 +47,8 @@ public class VulkanRenderer {
   @Deferred var indexStagingBufferMemory: DeviceMemory
   var indexStagingBufferMemoryPointer: UnsafeMutableRawPointer?
 
+  @Deferred var sceneDrawingManager: SceneDrawingManager
+
   @Deferred var uniformBuffers: [Buffer]
   @Deferred var uniformBuffersMemory: [DeviceMemory]
   @Deferred var mainMaterial: Material
@@ -127,6 +129,8 @@ public class VulkanRenderer {
     let initialIndexBufferSize = DeviceSize(4)
     try self.createIndexBuffer(size: initialIndexBufferSize)
     try self.createIndexStagingBuffer(size: initialIndexBufferSize)
+
+    self.sceneDrawingManager = try SceneDrawingManager(vulkanRenderer: self)
 
     try self.createUniformBuffers()
 
@@ -579,10 +583,10 @@ public class VulkanRenderer {
     activeOneTimeCommandBuffers.append((commandBuffer, fence))
   }
 
-  func copyBuffer(srcBuffer: Buffer, dstBuffer: Buffer, size: DeviceSize) throws {
+  func copyBuffer(srcBuffer: Buffer, dstBuffer: Buffer, size: DeviceSize, srcOffset: DeviceSize = 0, dstOffset: DeviceSize = 0) throws {
     let commandBuffer = try beginSingleTimeCommands()
     commandBuffer.copyBuffer(srcBuffer: srcBuffer, dstBuffer: dstBuffer, regions: [BufferCopy(
-      srcOffset: 0, dstOffset: 0, size: size 
+      srcOffset: srcOffset, dstOffset: dstOffset, size: size 
     )])
     try endSingleTimeCommands(commandBuffer: commandBuffer)
   }
@@ -930,10 +934,12 @@ public class VulkanRenderer {
   }
 
   func drawFrame(gameObjects: [GameObject]) throws {
-    let sceneDrawInfo = try generateSceneDrawInfo(gameObjects: gameObjects)
-    try measureDuration("updateRenderBuffers") {
+    try sceneDrawingManager.update(gameObjects: gameObjects)
+
+    //let sceneDrawInfo = try generateSceneDrawInfo(gameObjects: gameObjects)
+    /*try measureDuration("updateRenderBuffers") {
       try updateRenderBuffers(with: sceneDrawInfo)
-    }
+    }*/
 
     let imageAvailableSemaphore = imageAvailableSemaphores[currentFrameIndex]
     let renderFinishedSemaphore = renderFinishedSemaphores[currentFrameIndex]
@@ -967,7 +973,7 @@ public class VulkanRenderer {
     imagesInFlightWithFences[imageIndex] = inFlightFence
     inFlightFence.reset()
 
-    let commandBuffer = try recordCommandBuffer(framebufferIndex: Int(imageIndex), sceneDrawInfo: sceneDrawInfo)
+    let commandBuffer = try recordCommandBuffer(framebufferIndex: Int(imageIndex))
 
     try updateUniformBuffer(currentImage: imageIndex)
 
@@ -999,13 +1005,7 @@ public class VulkanRenderer {
 
     usedCommandBuffers[Int(imageIndex)] = commandBuffer
 
-     activeOneTimeCommandBuffers.removeAll { (buffer, fence) in
-      if fence.status == .success {
-        CommandBuffer.free(commandBuffers: [buffer], device: device, commandPool: commandPool)
-        return true
-      }
-      return false
-    }
+    testFreeSingleTimeCommandBuffers()
 
     currentFrameIndex += 1
     currentFrameIndex %= maxFramesInFlight
@@ -1051,7 +1051,7 @@ public class VulkanRenderer {
     try transferVertexIndices(indices: sceneDrawInfo.indices)
   }
 
-  func recordCommandBuffer(framebufferIndex: Int, sceneDrawInfo: SceneDrawInfo) throws -> CommandBuffer {
+  func recordCommandBuffer(framebufferIndex: Int) throws -> CommandBuffer {
     let framebuffer = framebuffers[framebufferIndex]
 
     let commandBuffer = try CommandBuffer.allocate(device: device, info: CommandBufferAllocateInfo(
@@ -1076,10 +1076,10 @@ public class VulkanRenderer {
 
     commandBuffer.bindPipeline(pipelineBindPoint: .graphics, pipeline: graphicsPipeline)
 
-    commandBuffer.bindVertexBuffers(firstBinding: 0, buffers: [vertexBuffer], offsets: [0])
-    commandBuffer.bindIndexBuffer(buffer: indexBuffer, offset: 0, indexType: VK_INDEX_TYPE_UINT32)
+    //commandBuffer.bindVertexBuffers(firstBinding: 0, buffers: [vertexBuffer], offsets: [0])
+    //commandBuffer.bindIndexBuffer(buffer: indexBuffer, offset: 0, indexType: VK_INDEX_TYPE_UINT32)
 
-    for meshDrawInfo in sceneDrawInfo.meshDrawInfos {
+    /*for meshDrawInfo in sceneDrawInfo.meshDrawInfos {
       var pushConstants = meshDrawInfo.transformation.transposed.elements
       pushConstants.append(meshDrawInfo.projectionEnabled ? 1 : 0)
       commandBuffer.pushConstants(layout: pipelineLayout, stageFlags: .vertex, offset: 0, size: UInt32(MemoryLayout<Float>.size * pushConstants.count), values: pushConstants)
@@ -1092,6 +1092,35 @@ public class VulkanRenderer {
         dynamicOffsets: [])
 
       commandBuffer.drawIndexed(indexCount: meshDrawInfo.indicesCount, instanceCount: 1, firstIndex: meshDrawInfo.indicesStartIndex, vertexOffset: 0, firstInstance: 0)
+    }*/
+
+    commandBuffer.bindVertexBuffers(firstBinding: 0, buffers: [sceneDrawingManager.sceneDrawInfo.vertexBuffer.buffer], offsets: [0])
+    commandBuffer.bindIndexBuffer(buffer: sceneDrawingManager.sceneDrawInfo.indexBuffer.buffer, offset: 0, indexType: VK_INDEX_TYPE_UINT32)
+
+    for gameObject in gameObjects {
+      if let meshGameObject = gameObject as? MeshGameObject {
+        let gameObjectDrawInfo = sceneDrawingManager.sceneDrawInfo.gameObjectDrawInfos[meshGameObject]!
+
+        var pushConstants = gameObject.transformation.transposed.elements
+        pushConstants.append(1)//gameObject.projectionEnabled ? 1 : 0)
+        commandBuffer.pushConstants(layout: pipelineLayout, stageFlags: .vertex, offset: 0, size: UInt32(MemoryLayout<Float>.size * pushConstants.count), values: pushConstants)
+
+        commandBuffer.bindDescriptorSets(
+          pipelineBindPoint: .graphics,
+          layout: pipelineLayout,
+          firstSet: 0,
+          descriptorSets: [descriptorSets[framebufferIndex], gameObjectDrawInfo.materialDrawData.descriptorSets[framebufferIndex]],
+          dynamicOffsets: [])
+
+        print("DRAWING", gameObjectDrawInfo, meshGameObject.mesh.indices.count)
+
+        commandBuffer.drawIndexed(
+          indexCount: UInt32(meshGameObject.mesh.indices.count),
+          instanceCount: 1,
+          firstIndex: UInt32(gameObjectDrawInfo.indicesStartIndex),
+          vertexOffset: Int32(gameObjectDrawInfo.vertexOffset),
+          firstInstance: 0)
+      }
     }
 
     commandBuffer.endRenderPass()
@@ -1125,6 +1154,16 @@ public class VulkanRenderer {
       data: &dataPointer)
     dataPointer?.copyMemory(from: uniformBufferObject.data, byteCount: UniformBufferObject.dataSize)
     uniformBuffersMemory[Int(currentImage)].unmapMemory()
+  }
+
+  func testFreeSingleTimeCommandBuffers() {
+    activeOneTimeCommandBuffers.removeAll { (buffer, fence) in
+      if fence.status == .success {
+        CommandBuffer.free(commandBuffers: [buffer], device: device, commandPool: commandPool)
+        return true
+      }
+      return false
+    }
   }
 
   func recreateSwapchain() throws {
