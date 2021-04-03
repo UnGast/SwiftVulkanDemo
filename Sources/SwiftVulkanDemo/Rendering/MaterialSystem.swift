@@ -9,6 +9,9 @@ public class MaterialSystem {
   @Deferred var descriptorSetLayout: DescriptorSetLayout
   @Deferred private var descriptorPool: DescriptorPool
   @Deferred private var textureSampler: Sampler 
+  @Deferred private var stagingBuffer: Buffer
+  @Deferred private var stagingBufferMemory: DeviceMemory
+  private var stagingBufferMemoryPointer: UnsafeMutableRawPointer?
   public private(set) var materialRenderData: [ObjectIdentifier: MaterialRenderData] = [:]
 
   private var unusedDescriptorSets = [DescriptorSet]()
@@ -22,6 +25,7 @@ public class MaterialSystem {
     try createDescriptorSetLayout()
     try createDescriptorPool()
     try createTextureSampler()
+    try createStagingBuffer()
   }
 
   func createDescriptorSetLayout() throws {
@@ -70,6 +74,17 @@ public class MaterialSystem {
     ))
   }
 
+  func createStagingBuffer() throws {
+    let size = DeviceSize(Double(50) * pow(10, 6))
+
+    (stagingBuffer, stagingBufferMemory) = try measureDuration("staging buffer") { 
+      try vulkanRenderer.createBuffer(
+        size: size, usage: [.transferSrc], properties: [.hostVisible, .hostCoherent])
+    }
+
+    try stagingBufferMemory.mapMemory(offset: 0, size: size, flags: .none, data: &stagingBufferMemoryPointer)
+  }
+
   func createTextureImage(imageData: Swim.Image<RGBA, UInt8>) throws -> (Vulkan.Image, Vulkan.DeviceMemory) {
     let imageWidth = Int32(imageData.width)
     let imageHeight = Int32(imageData.height)
@@ -92,22 +107,13 @@ public class MaterialSystem {
     let imageHeight = Int32(imageData.height)
     let dataSize = imageData.pixelCount * 4
 
-    let (stagingBuffer, stagingBufferMemory) = try vulkanRenderer.createBuffer(
-      size: DeviceSize(dataSize), usage: [.transferSrc], properties: [.hostVisible, .hostCoherent])
-    
-    var dataPointer: UnsafeMutableRawPointer? = nil
-    try stagingBufferMemory.mapMemory(offset: 0, size: DeviceSize(dataSize), flags: .none, data: &dataPointer)
-    dataPointer?.copyMemory(from: imageData.getData(), byteCount: dataSize)
-    stagingBufferMemory.unmapMemory()
+    stagingBufferMemoryPointer?.copyMemory(from: imageData.getData(), byteCount: dataSize)
 
     try vulkanRenderer.transitionImageLayout(image: image, format: .R8G8B8A8_SRGB /* note */, oldLayout: .undefined, newLayout: .transferDstOptimal)
 
     try vulkanRenderer.copyBufferToImage(buffer: stagingBuffer, image: image, width: UInt32(imageWidth), height: UInt32(imageHeight))
 
     try vulkanRenderer.transitionImageLayout(image: image, format: .R8G8B8A8_SRGB /* note */, oldLayout: .transferDstOptimal, newLayout: .shaderReadOnlyOptimal)
-
-    stagingBuffer.destroy()
-    stagingBufferMemory.free()
   }
 
   func createTextureImageView(image: Vulkan.Image) throws -> ImageView {
