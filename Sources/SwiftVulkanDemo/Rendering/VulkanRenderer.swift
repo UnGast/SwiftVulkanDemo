@@ -85,7 +85,7 @@ public class VulkanRenderer {
     0, 1, 2, 0, 2, 3,
   ]*/
 
-  let maxFramesInFlight = 1
+  let maxFramesInFlight = 2
   var currentFrameIndex = 0
   var imagesInFlightWithFences: [UInt32: Fence] = [:]
 
@@ -232,7 +232,7 @@ public class VulkanRenderer {
         queueFamilyIndices: [],
         preTransform: capabilities.currentTransform,
         compositeAlpha: compositeAlpha,
-        presentMode: .fifo,
+        presentMode: .immediate,
         clipped: true,
         oldSwapchain: nil
       ))
@@ -968,7 +968,7 @@ public class VulkanRenderer {
     }
 
     if let previousFence = imagesInFlightWithFences[imageIndex] {
-      previousFence.wait(timeout: .max)
+      //previousFence.wait(timeout: .max)
     }
     imagesInFlightWithFences[imageIndex] = inFlightFence
     inFlightFence.reset()
