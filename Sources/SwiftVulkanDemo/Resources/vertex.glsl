@@ -25,11 +25,13 @@ layout (push_constant) uniform pushConstants {
 };
 
 layout(location=0) in vec3 inPosition;
-layout(location=1) in vec4 inColor;
-layout(location=2) in vec2 inTexCoord;
+layout(location=1) in vec3 inNormal;
+layout(location=2) in vec4 inColor;
+layout(location=3) in vec2 inTexCoord;
 
 layout(location=0) out vec4 fragColor;
-layout(location=1) out vec2 fragTexCoord;
+layout(location=1) out vec3 fragNormal;
+layout(location=2) out vec2 fragTexCoord;
 
 void main() {
     mat4 cumulatedTransformation = modelTransformation;
@@ -39,5 +41,6 @@ void main() {
     vec4 tmp_position = cumulatedTransformation * vec4(inPosition, 1.);
     gl_Position = tmp_position;
     fragColor = inColor;
+    fragNormal = normalize(mat3(transpose(inverse(modelTransformation))) * inNormal);
     fragTexCoord = inTexCoord;
 }
