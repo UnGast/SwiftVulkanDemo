@@ -46,8 +46,10 @@ public class ManagedBuffer {
     stagingBufferSize = size
   }
 
-  public func addChunk<T>(_ data: [T], rawCount: Int? = nil) throws -> Int {
-    let dataSize = MemoryLayout<T>.size * data.count
+  public func addChunk<T: BufferSerializable>(_ data: [T]) throws -> Int {
+    let serializedData = data.serializedData
+    let dataSize = MemoryLayout<T.SerializedElement>.size * serializedData.count
+
     if nextBufferDataIndex + dataSize > bufferSize {
       print("recreating buffer because ran out of memory")
       try createBuffer(size: max(DeviceSize(Double(bufferSize) * 1.2), DeviceSize(nextBufferDataIndex + dataSize)))
@@ -57,7 +59,7 @@ public class ManagedBuffer {
       try createStagingBuffer(size: max(DeviceSize(Double(stagingBufferSize) * 1.2), DeviceSize(dataSize)))
     }
   
-    stagingBufferMemoryPointer?.copyMemory(from: data, byteCount: dataSize)
+    stagingBufferMemoryPointer?.copyMemory(from: serializedData, byteCount: dataSize)
     try vulkanRenderer.copyBuffer(
       srcBuffer: stagingBuffer,
       dstBuffer: buffer,
@@ -67,14 +69,7 @@ public class ManagedBuffer {
 
     defer { 
       nextBufferDataIndex += dataSize
-      /*if let alignment = alignment {
-        nextBufferDataIndex = Int(ceil(Double(nextBufferDataIndex) / Double(alignment)) * Double(alignment))
-      }*/
-      if let rawCount = rawCount {
-        nextBufferIndex += rawCount
-      } else {
-        nextBufferIndex += data.count
-      }
+      nextBufferIndex += data.count
     }
     return nextBufferIndex
   }

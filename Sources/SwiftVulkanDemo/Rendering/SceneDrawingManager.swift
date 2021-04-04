@@ -19,7 +19,7 @@ public class SceneDrawingManager {
       }
 
       if let meshGameObject = gameObject as? MeshGameObject {
-        let vertexOffset = try sceneDrawInfo.vertexBuffer.addChunk(meshGameObject.mesh.vertices.flatMap { $0.data }, rawCount: meshGameObject.mesh.vertices.count)
+        let vertexOffset = try sceneDrawInfo.vertexBuffer.addChunk(meshGameObject.mesh.vertices)
         let indicesStartIndex = try sceneDrawInfo.indexBuffer.addChunk(meshGameObject.mesh.indices)
 
         sceneDrawInfo.gameObjectDrawInfos[gameObject] = GameObjectDrawInfo(

@@ -38,7 +38,11 @@ vikingRoom.transformation = FMat4([
   0, 0, 0, 1
 ])
 gameObjects.append(vikingRoom)
+
 gameObjects.append(MeshGameObject(mesh: Mesh.plane(size: FVec2(100, 100))))
+
+let xyzDragon = MeshGameObject(mesh: try! Mesh.loadObj(fileUrl: Bundle.module.url(forResource: "xyzrgb_dragon", withExtension: "obj")!))
+gameObjects.append(xyzDragon)
 
 var nextCubeIndex = 0
 

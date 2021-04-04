@@ -2,12 +2,12 @@ import Foundation
 import GfxMath
 import Vulkan
 
-public struct Vertex {
+public struct Vertex: BufferSerializable {
   public var position: FVec3
   public var color: Color
   public var texCoord: FVec2
 
-  public var data: [Float] {
+  public var serializedData: [Float] {
     position.elements + [
       Float(color.r) / 255,
       Float(color.g) / 255,

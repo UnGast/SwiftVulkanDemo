@@ -794,7 +794,7 @@ public class VulkanRenderer {
   }
 
   func transferVertices(vertices: [Vertex]) throws {
-    let vertexData = vertices.flatMap { $0.data }
+    let vertexData = vertices.flatMap { $0.serializedData }
     let dataSize = DeviceSize(MemoryLayout<Float>.size * vertexData.count)
 
     if dataSize > currentVertexBufferSize {
