@@ -41,8 +41,9 @@ extension Mesh {
 
     for shape in shapes {
       for faceIndex in shape.face_offset..<shape.face_offset + shape.length {
-        for vertexIndex in 0..<3 {
+        var faceVertices: [Vertex] = []
 
+        for vertexIndex in 0..<3 {
           let rawVertex = attrib.faces[Int(faceIndex) * 3 + vertexIndex]
 
           let vertex = Vertex(
@@ -50,15 +51,26 @@ extension Mesh {
               x: attrib.vertices[Int(rawVertex.v_idx * 3 + 0)],
               y: attrib.vertices[Int(rawVertex.v_idx * 3 + 1)],
               z: attrib.vertices[Int(rawVertex.v_idx * 3 + 2)]
-            ), color: Color(
-              r: 0, g: 0, b: 0, a: 0
+            ), 
+            normal: .zero,
+            color: Color(
+              r: 0, g: 0, b: 0, a: 255
             ), texCoord: FVec2(
               x: rawVertex.vt_idx > 0 ? attrib.texcoords[Int(rawVertex.vt_idx * 2 + 0)] : -1,
               y: rawVertex.vt_idx > 0 ? 1 - attrib.texcoords[Int(rawVertex.vt_idx * 2 + 1)] : -1
             )
           )
 
-          vertices.append(vertex)
+          faceVertices.append(vertex)
+        }
+
+        let edge1 = faceVertices[1].position - faceVertices[0].position
+        let edge2 = faceVertices[2].position - faceVertices[0].position
+        let normal = edge1.cross(edge2)
+
+        for index in 0..<faceVertices.count {
+          faceVertices[index].normal = normal
+          vertices.append(faceVertices[index])
           indices.append(UInt32(vertices.count - 1))
         }
       }
