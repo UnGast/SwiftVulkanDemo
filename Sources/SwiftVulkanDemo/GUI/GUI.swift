@@ -1,4 +1,4 @@
-import SwiftGUI
+/*import SwiftGUI
 import SwiftGUIBackendSkia
 
 class GUI {
@@ -35,4 +35,4 @@ class GUI {
     root.tick(Tick(deltaTime: 0, totalTime: 0))
     root.draw(drawingContext)
   }
-}
+}*/

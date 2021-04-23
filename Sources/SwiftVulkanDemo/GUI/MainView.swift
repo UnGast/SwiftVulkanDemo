@@ -1,3 +1,4 @@
+/*
 import SwiftGUI
 
 class MainView: ContentfulWidget {
@@ -34,4 +35,4 @@ class MainView: ContentfulWidget {
       FlatTheme(primaryColor: .blue, secondaryColor: .red, backgroundColor: .black).styles
     }
   }
-}
+}*/

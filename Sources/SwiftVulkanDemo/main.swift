@@ -1,28 +1,62 @@
 import Foundation
-import SwiftGUI
-import ApplicationBackendSDL2
-import ApplicationBackendSDL2Vulkan
-import FirebladeECS
+import CVulkan
+import HID
+import GfxMath
 
-let backend = try ApplicationBackendSDL2.getInstance()
-let applicationEventSubscription = backend.eventPublisher.sink(receiveValue: handleApplicationEvent)
+Platform.initialize()
+print("Platform version: \(Platform.version)")
 
-let applicationBackend = try ApplicationBackendSDL2.getInstance()
+// either use a custom surface sub-class
+// or use the default implementation directly
+// let surface = CPUSurface()
+let window = try Window(properties: WindowProperties(title: "Title", frame: .init(0, 0, 800, 600)),
+                        surfaceType: VLKWindowSurface.self)
 
-let window = SDL2VulkanWindow(initialSize: ISize2(800, 600))
+func createVulkanInstance() throws -> VkInstance {
+    var hidSurfaceExtensions = try! VLKWindowSurface.getInstanceExtensionNames(in: window)
 
-//SDL_SetRelativeMouseMode(SDL_TRUE)
-let windowInputEventSubscription = window.inputEventPublisher.sink(receiveValue: handleWindowInputEvent)
+    // strdup copies the string passed in and returns a pointer to copy; copy not managed by swift -> not deallocated
+    var enabledLayerNames = [UnsafePointer<CChar>(strdup("VK_LAYER_KHRONOS_validation"))]
+
+    var createInfo = VkInstanceCreateInfo(
+        sType: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        pNext: nil,
+        flags: 0,
+        pApplicationInfo: nil,
+        enabledLayerCount: UInt32(enabledLayerNames.count),
+        ppEnabledLayerNames: enabledLayerNames,
+        enabledExtensionCount: UInt32(hidSurfaceExtensions.count),
+        ppEnabledExtensionNames: &hidSurfaceExtensions
+    )
+
+    var instanceOpt: VkInstance?
+    let result = vkCreateInstance(&createInfo, nil, &instanceOpt)
+
+    guard let instance = instanceOpt, result == VK_SUCCESS else {
+        throw VulkanApplicationError.couldNotCreateInstance
+    }
+
+    return instance
+}
+
+let vulkanInstance = try createVulkanInstance()
+
+enum VulkanApplicationError: Error {
+    case couldNotCreateInstance
+}
+
+try window.setupSurface(surfaceOptions: VLKWindowSurface.Options(instance: vulkanInstance))
+
+
+// rendering/content setup
+// -----------------
+
+let surface = try window.surface
 
 let renderer = try VulkanRenderer(window: window)
 
-let gui = GUI(surface: CpuBufferDrawingSurface(size: ISize2(800, 800)))
-gui.update()
-
-let windowSizeSubscription = window.sizeChanged.sink {
-  try! renderer.recreateSwapchain()
-  gui.surface = CpuBufferDrawingSurface(size: $0)
-}
+/*let gui = GUI(surface: CpuBufferDrawingSurface(size: ISize2(800, 800)))
+gui.update()*/
 
 var gameObjects = [GameObject]()
 
@@ -61,7 +95,7 @@ func createNewCube() {
 }
 
 createNewCube()
-
+/*
 let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
   Vertex(position: FVec3(-1, 1, 0.1), color: .transparent, texCoord: FVec2(0, 1)),
   Vertex(position: FVec3(1, 1, 0.1), color: .transparent, texCoord: FVec2(1, 1)),
@@ -71,7 +105,7 @@ let guiPlane = MeshGameObject(mesh: Mesh(vertices: [
   0, 1, 2,
   0, 2, 3
 ]))
-guiPlane.projectionEnabled = false
+guiPlane.projectionEnabled = false*/
 
 /*let pixelData = gui.surface.buffer.withMemoryRebound(to: UInt8.self, capacity: 1) {
   UnsafeBufferPointer(start: $0, count: gui.surface.size.width * gui.surface.size.height * 4)
@@ -84,7 +118,7 @@ guiPlane.mesh.material = guiMaterial*/
   0, 0, 1, 0, 
   0, 0, 0, 1
 ]).matmul(Matrix4(topLeft: Quaternion(angle: 90, axis: FVec3(1, 0, 0)).mat3).transposed)*/
-gameObjects.append(guiPlane)
+//gameObjects.append(guiPlane)
 
 var lastLoopTime = Date.timeIntervalSinceReferenceDate
 var lastNewCubeTime = Date.timeIntervalSinceReferenceDate
@@ -93,6 +127,30 @@ createNewCube()
 createNewCube()
 createNewCube()
 
+
+// application loop
+// ------------------
+
+var event = Event()
+
+var quit = false
+
+while !quit {
+    Events.pumpEvents()
+
+    while Events.pollEvent(&event) {
+        switch event.variant {
+        case .userQuit:
+            quit = true
+
+        default:
+            break
+        }
+    }
+}
+
+Platform.quit()
+/*
 func mainLoop() throws {
   let startTime = Date.timeIntervalSinceReferenceDate
   if startTime - lastNewCubeTime > 1 {
@@ -105,14 +163,14 @@ func mainLoop() throws {
 
   try backend.processEvents()
 
-  if let oldMaterial = guiPlane.mesh.material {
+  /*if let oldMaterial = guiPlane.mesh.material {
     try renderer.materialSystem.removeMaterial(material: oldMaterial)
   }
   gui.update()
   let pixelData = gui.surface.buffer.withMemoryRebound(to: UInt8.self, capacity: 1) {
     UnsafeBufferPointer(start: $0, count: gui.surface.size.width * gui.surface.size.height * 4)
   }
-  guiPlane.mesh.material = Material(texture: Image(width: gui.surface.size.width, height: gui.surface.size.height, rgba: Array(pixelData)))
+  guiPlane.mesh.material = Material(texture: Image(width: gui.surface.size.width, height: gui.surface.size.height, rgba: Array(pixelData)))*/
   
   try renderer.drawFrame(gameObjects: gameObjects)
 
@@ -164,4 +222,4 @@ func handleWindowInputEvent(_ event: WindowInputEvent) {
   default:
     print("unused window event", event)
   }
-}
+}*/

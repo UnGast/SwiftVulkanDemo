@@ -1,17 +1,14 @@
 import Foundation
-import CSDL2
-import CSDL2Vulkan
+import HID
 import CVulkan
 import Vulkan
 import CTinyObjLoader
 import GfxMath
-import ApplicationBackendSDL2Vulkan
-import class SwiftGUI.CpuBufferDrawingSurface
-import FirebladeECS
 // SPRIV Compiler? https://github.com/stuartcarnie/SwiftSPIRV-Cross
 
 public class VulkanRenderer {
-  @Deferred var window: SDL2VulkanWindow
+  @Deferred var window: Window<VLKWindowSurface>
+  @Deferred var windowSurface: VLKWindowSurface
   @Deferred var instance: Instance
   @Deferred var surface: SurfaceKHR
   @Deferred var physicalDevice: PhysicalDevice
@@ -55,8 +52,8 @@ public class VulkanRenderer {
   @Deferred var materialSystem: MaterialSystem
   @Deferred var descriptorPool: DescriptorPool
   @Deferred var descriptorSets: [DescriptorSet]
-  @Deferred var imageAvailableSemaphores: [Semaphore]
-  @Deferred var renderFinishedSemaphores: [Semaphore]
+  @Deferred var imageAvailableSemaphores: [Vulkan.Semaphore]
+  @Deferred var renderFinishedSemaphores: [Vulkan.Semaphore]
   @Deferred var inFlightFences: [Fence]
   var usedCommandBuffers: [Int: CommandBuffer] = [:]
 
@@ -89,12 +86,18 @@ public class VulkanRenderer {
   var currentFrameIndex = 0
   var imagesInFlightWithFences: [UInt32: Fence] = [:]
 
-  public init(window: SDL2VulkanWindow) throws {
+  public init(window: Window<VLKWindowSurface>) throws {
     self.window = window
 
-    try self.createInstance()
+    self.windowSurface = window.surface!
 
-    try self.createSurface()
+    self.instance = Instance(pointer: windowSurface.instance)
+
+    self.surface = SurfaceKHR(instance: instance, pointer: windowSurface.surface)
+
+    /*try self.createInstance()
+
+    try self.createSurface()*/
 
     try self.pickPhysicalDevice()
 
@@ -144,7 +147,7 @@ public class VulkanRenderer {
     try self.createSyncObjects()
   }
 
-  func createInstance() throws {
+  /*func createInstance() throws {
     let sdlExtensions = try! window.getVulkanInstanceExtensions()
 
     let createInfo = InstanceCreateInfo(
@@ -159,7 +162,7 @@ public class VulkanRenderer {
   func createSurface() throws {
     let drawingSurface = window.getVulkanDrawingSurface(instance: instance)
     self.surface = drawingSurface.vulkanSurface
-  }
+  }*/
 
   func pickPhysicalDevice() throws {
     let devices = try instance.enumeratePhysicalDevices()
@@ -179,7 +182,7 @@ public class VulkanRenderer {
     }
 
     guard let queueFamilyIndexUnwrapped = queueFamilyIndex else {
-      throw VulkanApplicationError.noSuitableQueueFamily
+      throw VulkanRendererError.noSuitableQueueFamily
     }
 
     self.queueFamilyIndex = queueFamilyIndexUnwrapped
@@ -553,7 +556,7 @@ public class VulkanRenderer {
       }
     }
 
-    throw VulkanApplicationError.noSuitableMemoryType 
+    throw VulkanRendererError.noSuitableMemoryType 
   }
 
   func beginSingleTimeCommands() throws -> CommandBuffer {
@@ -660,7 +663,7 @@ public class VulkanRenderer {
       sourceStage = .transfer
       destinationStage = .fragmentShader
     } else {
-      throw VulkanApplicationError.unsupportedImageLayoutTransition(old: oldLayout, new: newLayout)
+      throw VulkanRendererError.unsupportedImageLayoutTransition(old: oldLayout, new: newLayout)
     }
 
     commandBuffer.pipelineBarrier(
@@ -915,13 +918,13 @@ public class VulkanRenderer {
 
   func createSyncObjects() throws {
     imageAvailableSemaphores = try (0..<maxFramesInFlight).map { _ in 
-      try Semaphore.create(info: SemaphoreCreateInfo(
+      try Vulkan.Semaphore.create(info: SemaphoreCreateInfo(
         flags: .none
       ), device: device)
     }
 
     renderFinishedSemaphores = try (0..<maxFramesInFlight).map { _ in 
-      try Semaphore.create(info: SemaphoreCreateInfo(
+      try Vulkan.Semaphore.create(info: SemaphoreCreateInfo(
         flags: .none
       ), device: device)
     }
@@ -1133,7 +1136,7 @@ public class VulkanRenderer {
     /*var windowWidth: Int32 = 0
     var windowHeight: Int32 = 0
     SDL_GetWindowSize(window, &windowWidth, &windowHeight)*/
-    let aspectRatio = Float(window.size.width) / Float(window.size.height)
+    let aspectRatio = Float(windowSurface.size.width) / Float(windowSurface.size.height)
 
     let uniformBufferObject = UniformBufferObject(
       model: FMat4.identity/*newRotation(yaw: 0, pitch: 0)*/.matmul(FMat4([
@@ -1167,7 +1170,7 @@ public class VulkanRenderer {
   }
 
   func recreateSwapchain() throws {
-    if window.size.width == 0 || window.size.height == 0 {
+    if windowSurface.size.width == 0 || windowSurface.size.height == 0 {
       return
     }
     /*var windowWidth: Int32 = 0
@@ -1215,7 +1218,7 @@ public class VulkanRenderer {
   }
 } 
 
-public enum VulkanApplicationError: Error {
+public enum VulkanRendererError: Error {
   case noSuitableQueueFamily,
     noSuitableMemoryType,
     unsupportedImageLayoutTransition(old: ImageLayout, new: ImageLayout)

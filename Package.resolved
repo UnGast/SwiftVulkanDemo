@@ -2,47 +2,11 @@
   "object": {
     "pins": [
       {
-        "package": "Cnanovg",
-        "repositoryURL": "https://github.com/UnGast/Cnanovg.git",
-        "state": {
-          "branch": "master",
-          "revision": "b6ca44619bf68833a81ddcb23c9396219acd9b35",
-          "version": null
-        }
-      },
-      {
-        "package": "ColorizeSwift",
-        "repositoryURL": "https://github.com/mtynior/ColorizeSwift.git",
-        "state": {
-          "branch": null,
-          "revision": "2a354639173d021f4648cf1912b2b00a3a7cd83c",
-          "version": "1.6.0"
-        }
-      },
-      {
         "package": "CombineX",
         "repositoryURL": "https://github.com/cx-org/CombineX.git",
         "state": {
           "branch": "master",
           "revision": "b9afefe14653f02a80a9f5aa546859e99073d0c8",
-          "version": null
-        }
-      },
-      {
-        "package": "CSDL2",
-        "repositoryURL": "https://github.com/UnGast/CSDL2.git",
-        "state": {
-          "branch": "master",
-          "revision": "d69ef23b8e2ca88df97da1f5d7ef167bad92bbf7",
-          "version": null
-        }
-      },
-      {
-        "package": "CVulkan",
-        "repositoryURL": "https://github.com/UnGast/CVulkan.git",
-        "state": {
-          "branch": "master",
-          "revision": "85baa86d58b602191f40b01103bd24dafba642e3",
           "version": null
         }
       },
@@ -65,12 +29,30 @@
         }
       },
       {
+        "package": "FirebladeIO",
+        "repositoryURL": "https://github.com/fireblade-engine/io.git",
+        "state": {
+          "branch": null,
+          "revision": "8ffd6456030f0c13f1c2454e8c518ad52f8e8a64",
+          "version": "0.4.0"
+        }
+      },
+      {
+        "package": "FirebladeMath",
+        "repositoryURL": "https://github.com/fireblade-engine/math.git",
+        "state": {
+          "branch": null,
+          "revision": "b6700cf9ddfe00423f789f88f2c3a79132cb2eba",
+          "version": "0.10.0"
+        }
+      },
+      {
         "package": "Path.swift",
         "repositoryURL": "https://github.com/mxcl/Path.swift.git",
         "state": {
-          "branch": "master",
-          "revision": "891d70ec7cb448829acb8a2d73970b088fd9e5a7",
-          "version": null
+          "branch": null,
+          "revision": "142d4bc1118602f3679c777d2e0da89c227cd918",
+          "version": "1.2.0"
         }
       },
       {
@@ -83,12 +65,30 @@
         }
       },
       {
+        "package": "FirebladeResource",
+        "repositoryURL": "https://github.com/fireblade-engine/resource.git",
+        "state": {
+          "branch": null,
+          "revision": "90e456b18116479721b28c900819f53d9bff66c9",
+          "version": "0.2.1"
+        }
+      },
+      {
         "package": "swift-argument-parser",
         "repositoryURL": "https://github.com/apple/swift-argument-parser",
         "state": {
           "branch": null,
           "revision": "831ed5e860a70e745bc1337830af4786b2576881",
           "version": "0.4.1"
+        }
+      },
+      {
+        "package": "swift-crypto",
+        "repositoryURL": "https://github.com/apple/swift-crypto.git",
+        "state": {
+          "branch": null,
+          "revision": "3bea268b223651c4ab7b7b9ad62ef9b2d4143eb6",
+          "version": "1.1.6"
         }
       },
       {
@@ -101,30 +101,21 @@
         }
       },
       {
-        "package": "GLUtils",
-        "repositoryURL": "https://github.com/UnGast/swift-gl-utils",
+        "package": "swift-log",
+        "repositoryURL": "https://github.com/apple/swift-log.git",
         "state": {
-          "branch": "master",
-          "revision": "b04851b2c252c72c5bf50a69dde5514c9f386897",
-          "version": null
+          "branch": null,
+          "revision": "5d66f7ba25daf4f94100e7022febf3c75e37a6c7",
+          "version": "1.4.2"
         }
       },
       {
-        "package": "GL",
-        "repositoryURL": "https://github.com/UnGast/swift-opengl.git",
+        "package": "SDL2",
+        "repositoryURL": "https://github.com/ctreffs/SwiftSDL2.git",
         "state": {
-          "branch": "master",
-          "revision": "229ef7cdbfe1948948171e17a7d44d9c03ae4b65",
-          "version": null
-        }
-      },
-      {
-        "package": "XML",
-        "repositoryURL": "https://github.com/kelvin13/swiftxml",
-        "state": {
-          "branch": "master",
-          "revision": "91ae89c58e5a478191c27d44c31bd9bae281fefd",
-          "version": null
+          "branch": null,
+          "revision": "8f41b0102b5f69f38763635bc8118d469ac7193b",
+          "version": "1.1.0"
         }
       },
       {
@@ -143,6 +134,24 @@
           "branch": "master",
           "revision": "e8e3dc5f6a6f58af40a5c341cb7fbf0d7324dc74",
           "version": null
+        }
+      },
+      {
+        "package": "FirebladeTime",
+        "repositoryURL": "https://github.com/fireblade-engine/time.git",
+        "state": {
+          "branch": null,
+          "revision": "cf1bd291364f57e7583bbf49e77b7d5f8fb5927e",
+          "version": "0.1.1"
+        }
+      },
+      {
+        "package": "FirebladeUUID",
+        "repositoryURL": "https://github.com/fireblade-engine/uuid.git",
+        "state": {
+          "branch": null,
+          "revision": "52752aed44110a1e6b8b518d22d2b59a8e42d8b3",
+          "version": "1.1.0"
         }
       }
     ]
