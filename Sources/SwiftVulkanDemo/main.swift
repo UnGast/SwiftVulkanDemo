@@ -74,10 +74,10 @@ vikingRoom.transformation = FMat4([
 gameObjects.append(vikingRoom)
 
 gameObjects.append(MeshGameObject(mesh: Mesh.plane(size: FVec2(100, 100))))
-
+/*
 let xyzDragon = MeshGameObject(mesh: try! Mesh.loadObj(fileUrl: Bundle.module.url(forResource: "xyzrgb_dragon", withExtension: "obj")!))
 gameObjects.append(xyzDragon)
-
+*/
 var nextCubeIndex = 0
 
 func createNewCube() {
@@ -136,17 +136,46 @@ var event = Event()
 var quit = false
 
 while !quit {
-    Events.pumpEvents()
+  Events.pumpEvents()
 
-    while Events.pollEvent(&event) {
-        switch event.variant {
-        case .userQuit:
-            quit = true
+  while Events.pollEvent(&event) {
+    switch event.variant {
+    case .userQuit:
+      quit = true
 
-        default:
+    case .window:
+      if case let .resizedTo(newSize) = event.window.action {
+        try! renderer.recreateSwapchain()
+      }
+
+    case .keyboard:
+      if event.keyboard.state == .pressed {
+        let speed = Float(0.5)
+        switch event.keyboard.physicalKey {
+          case .UP:
+            renderer.camera.position += renderer.camera.forward * speed
+          case .DOWN:
+            renderer.camera.position -= renderer.camera.forward * speed
+          case .RIGHT:
+            renderer.camera.position += renderer.camera.right * speed
+          case .LEFT:
+            renderer.camera.position -= renderer.camera.right * speed
+          default:
             break
         }
+      }
+
+    case .pointerMotion:
+      renderer.camera.yaw += Float(event.pointerMotion.deltaX)
+      renderer.camera.pitch -= Float(event.pointerMotion.deltaY)
+      renderer.camera.pitch = min(89, max(-89, renderer.camera.pitch))
+
+    default:
+      break
     }
+  }
+
+  try renderer.drawFrame(gameObjects: gameObjects)
 }
 
 Platform.quit()

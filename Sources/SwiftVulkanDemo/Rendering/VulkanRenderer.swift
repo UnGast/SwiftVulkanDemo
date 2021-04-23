@@ -175,8 +175,8 @@ public class VulkanRenderer {
       if try! physicalDevice.hasSurfaceSupport(
         for: properties,
         surface:
-          surface /*(properties.queueCount & QueueFamilyProperties.Flags.graphicsBit.rawValue == QueueFamilyProperties.Flags.graphicsBit.rawValue) &&*/
-      ) {
+          surface
+      ) && properties.queueCount & QueueFamilyProperties.Flags.graphicsBit.rawValue == QueueFamilyProperties.Flags.graphicsBit.rawValue {
         queueFamilyIndex = properties.index
       }
     }
@@ -1114,8 +1114,6 @@ public class VulkanRenderer {
           firstSet: 0,
           descriptorSets: [descriptorSets[framebufferIndex], gameObjectDrawInfo.materialDrawData.descriptorSets[framebufferIndex]],
           dynamicOffsets: [])
-
-        print("DRAWING", gameObjectDrawInfo, meshGameObject.mesh.indices.count)
 
         commandBuffer.drawIndexed(
           indexCount: UInt32(meshGameObject.mesh.indices.count),
