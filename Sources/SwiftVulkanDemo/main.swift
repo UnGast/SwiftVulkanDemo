@@ -6,52 +6,53 @@ import GfxMath
 Platform.initialize()
 print("Platform version: \(Platform.version)")
 
-// either use a custom surface sub-class
-// or use the default implementation directly
-// let surface = CPUSurface()
-let window = try Window(properties: WindowProperties(title: "Title", frame: .init(0, 0, 800, 600)),
-                        surfaceType: VLKWindowSurface.self)
+func createVulkanInstance(in window: Window) throws -> VkInstance {
+  var hidSurfaceExtensions = try! VLKWindowSurface.getInstanceExtensionNames(in: window)
 
-func createVulkanInstance() throws -> VkInstance {
-    var hidSurfaceExtensions = try! VLKWindowSurface.getInstanceExtensionNames(in: window)
+  print("AFTER THIS")
 
-    // strdup copies the string passed in and returns a pointer to copy; copy not managed by swift -> not deallocated
-    var enabledLayerNames = [UnsafePointer<CChar>(strdup("VK_LAYER_KHRONOS_validation"))]
+  // strdup copies the string passed in and returns a pointer to copy; copy not managed by swift -> not deallocated
+  var enabledLayerNames = [UnsafePointer<CChar>(strdup("VK_LAYER_KHRONOS_validation"))]
 
-    var createInfo = VkInstanceCreateInfo(
-        sType: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        pNext: nil,
-        flags: 0,
-        pApplicationInfo: nil,
-        enabledLayerCount: UInt32(enabledLayerNames.count),
-        ppEnabledLayerNames: enabledLayerNames,
-        enabledExtensionCount: UInt32(hidSurfaceExtensions.count),
-        ppEnabledExtensionNames: &hidSurfaceExtensions
-    )
+  var createInfo = VkInstanceCreateInfo(
+      sType: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+      pNext: nil,
+      flags: 0,
+      pApplicationInfo: nil,
+      enabledLayerCount: UInt32(enabledLayerNames.count),
+      ppEnabledLayerNames: enabledLayerNames,
+      enabledExtensionCount: UInt32(hidSurfaceExtensions.count),
+      ppEnabledExtensionNames: &hidSurfaceExtensions
+  )
 
-    var instanceOpt: VkInstance?
-    let result = vkCreateInstance(&createInfo, nil, &instanceOpt)
+  var instanceOpt: VkInstance?
+  let result = vkCreateInstance(&createInfo, nil, &instanceOpt)
 
-    guard let instance = instanceOpt, result == VK_SUCCESS else {
-        throw VulkanApplicationError.couldNotCreateInstance
-    }
+  guard let instance = instanceOpt, result == VK_SUCCESS else {
+      throw VulkanApplicationError.couldNotCreateInstance
+  }
 
-    return instance
+  return instance
 }
 
-let vulkanInstance = try createVulkanInstance()
+func makeVLKSurface(in window: Window) throws -> VLKWindowSurface {
+  print("GOT HERE")
+  let vulkanInstance = try createVulkanInstance(in: window)
+  return try VLKWindowSurface(in: window, with: VLKWindowSurface.Options(instance: vulkanInstance))
+}
 
 enum VulkanApplicationError: Error {
     case couldNotCreateInstance
 }
 
-try window.setupSurface(surfaceOptions: VLKWindowSurface.Options(instance: vulkanInstance))
-
+let window = try Window(properties: WindowProperties(title: "Title", frame: .init(0, 0, 800, 600)),
+                        surface: makeVLKSurface)
 
 // rendering/content setup
 // -----------------
-
-let surface = try window.surface
+print("HERE1")
+let surface = window.surface!
+print("HERE2")
 
 let renderer = try VulkanRenderer(window: window)
 

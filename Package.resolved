@@ -11,6 +11,15 @@
         }
       },
       {
+        "package": "CVulkan",
+        "repositoryURL": "https://github.com/UnGast/CVulkan.git",
+        "state": {
+          "branch": "master",
+          "revision": "d7b422f0f5ef93b41bc1199e306ac74e6950eb10",
+          "version": null
+        }
+      },
+      {
         "package": "FirebladeECS",
         "repositoryURL": "https://github.com/fireblade-engine/ecs.git",
         "state": {

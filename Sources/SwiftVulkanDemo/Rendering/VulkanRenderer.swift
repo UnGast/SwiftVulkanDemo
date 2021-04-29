@@ -7,7 +7,7 @@ import GfxMath
 // SPRIV Compiler? https://github.com/stuartcarnie/SwiftSPIRV-Cross
 
 public class VulkanRenderer {
-  @Deferred var window: Window<VLKWindowSurface>
+  @Deferred var window: Window
   @Deferred var windowSurface: VLKWindowSurface
   @Deferred var instance: Instance
   @Deferred var surface: SurfaceKHR
@@ -86,10 +86,10 @@ public class VulkanRenderer {
   var currentFrameIndex = 0
   var imagesInFlightWithFences: [UInt32: Fence] = [:]
 
-  public init(window: Window<VLKWindowSurface>) throws {
+  public init(window: Window) throws {
     self.window = window
 
-    self.windowSurface = window.surface!
+    self.windowSurface = window.surface as! VLKWindowSurface
 
     self.instance = Instance(pointer: windowSurface.instance)
 
