@@ -1134,7 +1134,8 @@ public class VulkanRenderer {
     /*var windowWidth: Int32 = 0
     var windowHeight: Int32 = 0
     SDL_GetWindowSize(window, &windowWidth, &windowHeight)*/
-    let aspectRatio = Float(windowSurface.size.width) / Float(windowSurface.size.height)
+    let windowSurfaceSize = windowSurface.getDrawableSize()
+    let aspectRatio = Float(windowSurfaceSize.width) / Float(windowSurfaceSize.height)
 
     let uniformBufferObject = UniformBufferObject(
       model: FMat4.identity/*newRotation(yaw: 0, pitch: 0)*/.matmul(FMat4([
@@ -1168,7 +1169,8 @@ public class VulkanRenderer {
   }
 
   func recreateSwapchain() throws {
-    if windowSurface.size.width == 0 || windowSurface.size.height == 0 {
+    let windowSurfaceSize = windowSurface.getDrawableSize()
+    if windowSurfaceSize.width == 0 || windowSurfaceSize.height == 0 {
       return
     }
     /*var windowWidth: Int32 = 0
